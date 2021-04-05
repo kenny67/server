@@ -17,7 +17,6 @@
 package io.moquette.spi.impl;
 
 import cn.wildfirechat.common.ErrorCode;
-import cn.wildfirechat.pojos.SendMessageData;
 import cn.wildfirechat.pojos.UserOnlineStatus;
 import cn.wildfirechat.proto.ProtoConstants;
 import cn.wildfirechat.proto.WFCMessage;
@@ -54,6 +53,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static io.moquette.spi.impl.InternalRepublisher.createPublishForQos;
+import static cn.wildfirechat.common.IMExceptionEvent.EventType.EVENT_CALLBACK_Exception;
 import static io.moquette.spi.impl.Utils.readBytesAndRewind;
 import static io.netty.handler.codec.mqtt.MqttConnectReturnCode.*;
 import static io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader.from;
@@ -72,15 +72,30 @@ public class ProtocolProcessor {
 
     public void kickoffSession(final MemorySessionStore.Session session) {
         mServer.getImBusinessScheduler().execute(()->{
-            ConnectionDescriptor descriptor = connectionDescriptors.getConnection(session.getClientID());
-            try {
-                if (descriptor != null) {
-                    processDisconnect(descriptor.getChannel(), true, false);
+            new Thread(() -> {
+                messagesPublisher.sendOfflineNotify(session.getClientID());
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-                Utility.printExecption(LOG, e);
-            }
+
+                mServer.getImBusinessScheduler().execute(()->{
+                    ConnectionDescriptor descriptor = connectionDescriptors.getConnection(session.getClientID());
+                    try {
+                        if (descriptor != null) {
+                            processDisconnect(descriptor.getChannel(), true, false);
+                        }
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                        Utility.printExecption(LOG, e);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        Utility.printExecption(LOG, e);
+                    }
+                    m_messagesStore.updateUserOnlineSetting(session, false);
+                });
+            }).start();
         });
     }
 
@@ -173,8 +188,7 @@ public class ProtocolProcessor {
         String clientId = payload.clientIdentifier();
         LOG.info("Processing CONNECT message. CId={}, username={}", clientId, payload.userName());
 
-        if (msg.variableHeader().version() < MqttVersion.MQTT_3_1_1.protocolLevel() ||
-                msg.variableHeader().version() >= MqttVersion.Wildfire_Max.protocolLevel()) {
+        if (msg.variableHeader().version() < MqttVersion.MQTT_3_1_1.protocolLevel()) {
             MqttConnAckMessage badProto = connAck(CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION);
 
             LOG.error("MQTT protocol version is not valid. CId={}", clientId);
@@ -243,18 +257,23 @@ public class ProtocolProcessor {
         MemorySessionStore.Session session = m_sessionsStore.getSession(clientId);
         if(session != null) {
             session.refreshLastActiveTime();
-            forwardOnlineStatusEvent(payload.userName(), clientId, session.getPlatform(), UserOnlineStatus.ONLINE);
+            forwardOnlineStatusEvent(payload.userName(), clientId, session.getPlatform(), UserOnlineStatus.ONLINE, session.getAppName());
             m_messagesStore.updateUserOnlineSetting(session, true);
-        } else {
-            forwardOnlineStatusEvent(payload.userName(), clientId, ProtoConstants.Platform.Platform_UNSET, UserOnlineStatus.ONLINE);
         }
 
         LOG.info("The CONNECT message has been processed. CId={}, username={}", clientId, payload.userName());
     }
 
-    public void forwardOnlineStatusEvent(String userId, String clientId, int platform, int status) {
+    public void forwardOnlineStatusEvent(String userId, String clientId, int platform, int status, String packageName) {
         if (!StringUtil.isNullOrEmpty(mUserOnlineStatusCallback)) {
-            executorCallback.execute(() -> HttpUtils.httpJsonPost(mUserOnlineStatusCallback, new Gson().toJson(new UserOnlineStatus(userId, clientId, platform, status))));
+            mServer.getCallbackScheduler().execute(() -> {
+                try {
+                    HttpUtils.httpJsonPost(mUserOnlineStatusCallback, new Gson().toJson(new UserOnlineStatus(userId, clientId, platform, status, packageName)));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Utility.printExecption(LOG, e, EVENT_CALLBACK_Exception);
+                }
+            });
         }
     }
 
@@ -562,9 +581,7 @@ public class ProtocolProcessor {
         MemorySessionStore.Session session = m_sessionsStore.getSession(clientID);
         if(session != null) {
             m_messagesStore.updateUserOnlineSetting(session, false);
-        }
-        if(session != null) {
-            forwardOnlineStatusEvent(username, clientID, session.getPlatform(), UserOnlineStatus.LOGOUT);
+            forwardOnlineStatusEvent(username, clientID, session.getPlatform(), UserOnlineStatus.LOGOUT, session.getAppName());
         }
 
         channel.closeFuture();
@@ -608,7 +625,7 @@ public class ProtocolProcessor {
         MemorySessionStore.Session session = m_sessionsStore.getSession(clientID);
         if(session != null) {
             session.refreshLastActiveTime();
-            forwardOnlineStatusEvent(username, clientID, session.getPlatform(), clearSession ? UserOnlineStatus.LOGOUT : UserOnlineStatus.OFFLINE);
+            forwardOnlineStatusEvent(username, clientID, session.getPlatform(), clearSession ? UserOnlineStatus.LOGOUT : UserOnlineStatus.OFFLINE, session.getAppName());
             m_messagesStore.updateUserOnlineSetting(session, false);
         }
 

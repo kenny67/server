@@ -14,16 +14,19 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
+import static cn.wildfirechat.pojos.MyInfoType.Modify_DisplayName;
 import static cn.wildfirechat.proto.ProtoConstants.SystemSettingType.Group_Max_Member_Count;
 
 public class Main {
+    private static boolean commercialServer = false;
+
     public static void main(String[] args) throws Exception {
         //admin使用的是18080端口，超级管理接口，理论上不能对外开放端口，也不能让非内部服务知悉密钥。
         testAdmin();
 
         //Robot和Channel都是使用的80端口，第三方可以创建或者为第三方创建，第三方可以使用robot或者channel与IM系统进行对接。
         testRobot();
-        //testChannel();
+        testChannel();
     }
 
 
@@ -37,7 +40,11 @@ public class Main {
         testChatroom();
         testMessage();
         testGeneralApi();
-        testDevice();
+        testSensitiveApi();
+        if (commercialServer) {
+            testDevice();
+        }
+
 
         System.out.println("Congratulation, all admin test case passed!!!!!!!");
     }
@@ -47,7 +54,9 @@ public class Main {
     //***********************************************
     static void testUser() throws Exception {
         InputOutputUserInfo userInfo = new InputOutputUserInfo();
+        //用户ID，必须保证唯一性
         userInfo.setUserId("userId1");
+        //用户名，一般是用户登录帐号，也必须保证唯一性。也就是说所有用户的userId必须不能重复，所有用户的name必须不能重复，但可以同一个用户的userId和name是同一个，一般建议userId使用一个uuid，name是"微信号"且可以修改，
         userInfo.setName("user1");
         userInfo.setMobile("13900000000");
         userInfo.setDisplayName("user 1");
@@ -115,6 +124,43 @@ public class Main {
                 && userInfo.getName().equals(resultGetUserInfo3.getResult().getName())
                 && userInfo.getMobile().equals(resultGetUserInfo3.getResult().getMobile())
                 && userInfo.getDisplayName().equals(resultGetUserInfo3.getResult().getDisplayName())) {
+                System.out.println("get user info success");
+            } else {
+                System.out.println("get user info by userId failure");
+                System.exit(-1);
+            }
+        } else {
+            System.out.println("get user info by userId failure");
+            System.exit(-1);
+        }
+
+        InputOutputUserInfo updateUserInfo = new InputOutputUserInfo();
+        updateUserInfo.setUserId(System.currentTimeMillis()+"");
+        updateUserInfo.setDisplayName("updatedUserName");
+        updateUserInfo.setPortrait("updatedUserPortrait");
+        int updateUserFlag = ProtoConstants.UpdateUserInfoMask.Update_User_DisplayName | ProtoConstants.UpdateUserInfoMask.Update_User_Portrait;
+        IMResult<Void> result = UserAdmin.updateUserInfo(updateUserInfo, updateUserFlag);
+        if(result != null && result.getErrorCode() == ErrorCode.ERROR_CODE_NOT_EXIST) {
+            System.out.println("updateUserInfo success");
+        } else {
+            System.out.println("updateUserInfo failure");
+            System.exit(-1);
+        }
+
+        updateUserInfo.setUserId(userInfo.getUserId());
+        result = UserAdmin.updateUserInfo(updateUserInfo, updateUserFlag);
+        if(result != null && result.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("updateUserInfo success");
+        } else {
+            System.out.println("updateUserInfo failure");
+            System.exit(-1);
+        }
+
+        IMResult<InputOutputUserInfo> resultGetUserInfo4 = UserAdmin.getUserByUserId(userInfo.getUserId());
+        if (resultGetUserInfo4 != null && resultGetUserInfo4.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            if (userInfo.getUserId().equals(resultGetUserInfo4.getResult().getUserId())
+                && updateUserInfo.getDisplayName().equals(resultGetUserInfo4.getResult().getDisplayName())
+                && updateUserInfo.getPortrait().equals(resultGetUserInfo4.getResult().getPortrait())) {
                 System.out.println("get user info success");
             } else {
                 System.out.println("get user info by userId failure");
@@ -246,6 +292,30 @@ public class Main {
             System.exit(-1);
         }
 
+        IMResult<Void> result = RelationAdmin.sendFriendRequest("ff1", "ff2", "hello", true);
+        if (result != null && result.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("send friend request success");
+        } else {
+            System.out.println("failure");
+            System.exit(-1);
+        }
+
+        result = RelationAdmin.sendFriendRequest("ff1", "ff2", "hello2", false);
+        if (result != null && result.getErrorCode() != ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("success");
+        } else {
+            System.out.println("failure");
+            System.exit(-1);
+        }
+
+        result = RelationAdmin.sendFriendRequest("ff1", "ff2", "hello3", true);
+        if (result != null && result.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("success");
+        } else {
+            System.out.println("send friend request success");
+            System.exit(-1);
+        }
+
         IMResult<Void> updateFriendStatusResult = RelationAdmin.setUserFriend("ff1", "ff2", true, "{\"from\":1}");
         if (updateFriendStatusResult != null && updateFriendStatusResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
             System.out.println("update friend status success");
@@ -261,6 +331,23 @@ public class Main {
             System.out.println("get friend status failure");
             System.exit(-1);
         }
+
+        updateFriendStatusResult = RelationAdmin.setUserFriend("ff1", "ff2", false, null);
+        if (updateFriendStatusResult != null && updateFriendStatusResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("update friend status success");
+        } else {
+            System.out.println("update friend status failure");
+            System.exit(-1);
+        }
+
+        resultGetFriendList = RelationAdmin.getFriendList("ff1");
+        if (resultGetFriendList != null && resultGetFriendList.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && !resultGetFriendList.getResult().getList().contains("ff2")) {
+            System.out.println("get friend status success");
+        } else {
+            System.out.println("get friend status failure");
+            System.exit(-1);
+        }
+
 
         IMResult<Void> updateBlacklistStatusResult = RelationAdmin.setUserBlacklist("ff1", "ff2", true);
         if (updateBlacklistStatusResult != null && updateBlacklistStatusResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
@@ -281,17 +368,25 @@ public class Main {
         String alias = "hello" + System.currentTimeMillis();
         IMResult<Void> updateFriendAlias = RelationAdmin.updateFriendAlias("ff1", "ff2", alias);
         if (updateFriendAlias != null && updateFriendAlias.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("update friend status success");
+            System.out.println("update friend alias success");
         } else {
-            System.out.println("update friend status failure");
+            System.out.println("update friend alias failure");
             System.exit(-1);
         }
 
         IMResult<OutputGetAlias> getFriendAlias = RelationAdmin.getFriendAlias("ff1", "ff2");
         if (getFriendAlias != null && getFriendAlias.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && getFriendAlias.getResult().getAlias().equals(alias)) {
-            System.out.println("update friend status success");
+            System.out.println("get friend alias success");
         } else {
-            System.out.println("update friend status failure");
+            System.out.println("get friend alias failure");
+            System.exit(-1);
+        }
+
+        IMResult<RelationPojo> getRelation = RelationAdmin.getRelation("ff1", "ff2");
+        if (getRelation != null && getRelation.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("get friend relation success");
+        } else {
+            System.out.println("get friend relation failure");
             System.exit(-1);
         }
     }
@@ -307,6 +402,7 @@ public class Main {
         groupInfo.setOwner("user1");
         groupInfo.setName("test_group");
         groupInfo.setExtra("hello extra");
+        groupInfo.setType(2);
         groupInfo.setPortrait("http://portrait");
         List<PojoGroupMember> members = new ArrayList<>();
         PojoGroupMember member1 = new PojoGroupMember();
@@ -382,7 +478,11 @@ public class Main {
             System.exit(-1);
         }
 
-        voidIMResult = GroupAdmin.addGroupMembers("user1", groupInfo.getTarget_id(), Arrays.asList("use4", "user5"), null, null);
+        PojoGroupMember m = new PojoGroupMember();
+        m.setMember_id("user1");
+        m.setAlias("hello user1");
+
+        voidIMResult = GroupAdmin.addGroupMembers("user1", groupInfo.getTarget_id(), Arrays.asList(m), null, null);
         if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
             System.out.println("add group member success");
         } else {
@@ -398,39 +498,31 @@ public class Main {
             System.exit(-1);
         }
 
-        voidIMResult = GroupAdmin.setGroupManager("user1", groupInfo.getTarget_id(), Arrays.asList("user4", "user5"), true, null, null);
+        voidIMResult = GroupAdmin.setGroupMemberAlias("user1", groupInfo.getTarget_id(), "user3", "test user3", null, null);
         if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("set group manager success");
+            System.out.println("set group member alias success");
         } else {
-            System.out.println("set group manager failure");
+            System.out.println("set group member alias failure");
             System.exit(-1);
         }
 
-        voidIMResult = GroupAdmin.setGroupManager("user1", groupInfo.getTarget_id(), Arrays.asList("user4", "user5"), false, null, null);
-        if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("cancel group manager success");
-        } else {
-            System.out.println("cancel group manager failure");
-            System.exit(-1);
+        if(commercialServer) {
+            voidIMResult = GroupAdmin.setGroupManager("user1", groupInfo.getTarget_id(), Arrays.asList("user4", "user5"), true, null, null);
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("set group manager success");
+            } else {
+                System.out.println("set group manager failure");
+                System.exit(-1);
+            }
+
+            voidIMResult = GroupAdmin.setGroupManager("user1", groupInfo.getTarget_id(), Arrays.asList("user4", "user5"), false, null, null);
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("cancel group manager success");
+            } else {
+                System.out.println("cancel group manager failure");
+                System.exit(-1);
+            }
         }
-
-        voidIMResult = GroupAdmin.muteGroupMemeber("user1", groupInfo.getTarget_id(), Arrays.asList("user4", "user5"), true, null, null);
-        if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("mute group member success");
-        } else {
-            System.out.println("mute group member failure");
-            System.exit(-1);
-        }
-
-        voidIMResult = GroupAdmin.muteGroupMemeber("user1", groupInfo.getTarget_id(), Arrays.asList("user4", "user5"), false, null, null);
-        if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("unmute group member success");
-        } else {
-            System.out.println("unmute group member failure");
-            System.exit(-1);
-        }
-
-
 
         voidIMResult = GroupAdmin.quitGroup("user4", groupInfo.getTarget_id(), null, null);
         if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
@@ -453,6 +545,44 @@ public class Main {
             System.exit(-1);
         }
 
+
+        //仅专业版支持
+        if (commercialServer) {
+            //开启群成员禁言
+            voidIMResult = GroupAdmin.muteGroupMemeber("user1", groupInfo.getTarget_id(), Arrays.asList("user5"), true, null, null);
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("mute group member success");
+            } else {
+                System.out.println("mute group member failure");
+                System.exit(-1);
+            }
+            //关闭群成员禁言
+            voidIMResult = GroupAdmin.muteGroupMemeber("user1", groupInfo.getTarget_id(), Arrays.asList("user5"), false, null, null);
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("unmute group member success");
+            } else {
+                System.out.println("unmute group member failure");
+                System.exit(-1);
+            }
+
+            //开启群成员白名单，当群全局禁言时，白名单用户可以发言
+            voidIMResult = GroupAdmin.allowGroupMemeber("user1", groupInfo.getTarget_id(), Arrays.asList("user5"), true, null, null);
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("allow group member success");
+            } else {
+                System.out.println("allow group member failure");
+                System.exit(-1);
+            }
+
+            //关闭群成员白名单
+            voidIMResult = GroupAdmin.allowGroupMemeber("user1", groupInfo.getTarget_id(), Arrays.asList("user5"), false, null, null);
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("unallow group member success");
+            } else {
+                System.out.println("unallow group member failure");
+                System.exit(-1);
+            }
+        }
     }
 
     //***********************************************
@@ -466,7 +596,7 @@ public class Main {
         payload.setType(1);
         payload.setSearchableContent("hello world");
 
-        IMResult<SendMessageResult> resultSendMessage = MessageAdmin.sendMessage("user1", conversation, payload);
+        IMResult<SendMessageResult> resultSendMessage = MessageAdmin.sendMessage("user1", conversation, payload, null);
         if (resultSendMessage != null && resultSendMessage.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
             System.out.println("send message success");
         } else {
@@ -483,20 +613,29 @@ public class Main {
             System.exit(-1);
         }
 
-        voidIMResult = MessageAdmin.deleteMessage(resultSendMessage.getResult().getMessageUid());
-        if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("delete message success");
-        } else {
-            System.out.println("delete message failure");
-            System.exit(-1);
-        }
+        if (commercialServer) {
+            voidIMResult = MessageAdmin.deleteMessage(resultSendMessage.getResult().getMessageUid());
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("delete message success");
+            } else {
+                System.out.println("delete message failure");
+                System.exit(-1);
+            }
 
-        IMResult<BroadMessageResult> resultBroadcastMessage = MessageAdmin.broadcastMessage("user1", 0, payload);
-        if (resultBroadcastMessage != null && resultBroadcastMessage.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("broad message success, send message to " + resultBroadcastMessage.getResult().getCount() + " users");
-        } else {
-            System.out.println("broad message failure");
-            System.exit(-1);
+            IMResult<BroadMessageResult> resultBroadcastMessage = MessageAdmin.broadcastMessage("user1", 0, payload);
+            if (resultBroadcastMessage != null && resultBroadcastMessage.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("broad message success, send message to " + resultBroadcastMessage.getResult().getCount() + " users");
+            } else {
+                System.out.println("broad message failure");
+                System.exit(-1);
+            }
+
+            voidIMResult = MessageAdmin.recallBroadCastMessage("user1", resultBroadcastMessage.result.getMessageUid());
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("Success");
+            } else {
+                System.out.println("failure");
+            }
         }
 
         List<String> multicastReceivers = Arrays.asList("user2", "user3", "user4");
@@ -506,6 +645,13 @@ public class Main {
         } else {
             System.out.println("multi message failure");
             System.exit(-1);
+        }
+
+        voidIMResult = MessageAdmin.recallMultiCastMessage("user1", resultMulticastMessage.result.getMessageUid(), multicastReceivers);
+        if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("Success");
+        } else {
+            System.out.println("failure");
         }
     }
 
@@ -548,8 +694,8 @@ public class Main {
             System.exit(-1);
         }
     }
-    static void testChatroom() throws Exception {
 
+    static void testChatroom() throws Exception {
         String chatroomId = "chatroomId1";
         String chatroomTitle = "TESTCHATROM";
         String chatroomDesc = "this is a test chatroom";
@@ -574,7 +720,7 @@ public class Main {
                 System.out.println("chatroom info incorrect");
                 System.exit(-1);
             } else {
-                System.out.println("chatroom info incorrect");
+                System.out.println("chatroom info correct");
             }
         } else {
             System.out.println("get chatroom info failure");
@@ -605,111 +751,171 @@ public class Main {
         }
 
         //下面仅专业版支持
-        /*
-        //设置用户聊天室黑名单。0正常；1禁言；2禁止加入。
-        IMResult<Void> voidIMResult1 = ChatroomAdmin.setChatroomBlacklist("chatroom1", "oto9o9__", 1);
-        if (voidIMResult1 != null && voidIMResult1.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("add chatroom black success");
-        } else {
-            System.out.println("add chatroom black failure");
-            System.exit(-1);
-        }
-
-        //获取聊天室黑名单
-        IMResult<OutputChatroomBlackInfos> blackInfos = ChatroomAdmin.getChatroomBlacklist("chatroom1");
-        if (blackInfos != null && blackInfos.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && !blackInfos.getResult().infos.isEmpty()) {
-            boolean success = false;
-            for (OutputChatroomBlackInfos.OutputChatroomBlackInfo info : blackInfos.getResult().infos) {
-                if (info.userId.equals("oto9o9__")) {
-                    success = true;
-                    break;
-                }
-            }
-            if (success) {
+        if(commercialServer) {
+            //设置用户聊天室黑名单。0正常；1禁言；2禁止加入。
+            IMResult<Void> voidIMResult1 = ChatroomAdmin.setChatroomBlacklist("chatroom1", "oto9o9__", 1);
+            if (voidIMResult1 != null && voidIMResult1.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
                 System.out.println("add chatroom black success");
             } else {
                 System.out.println("add chatroom black failure");
                 System.exit(-1);
             }
-        } else {
-            System.out.println("add chatroom black failure");
-            System.exit(-1);
-        }
 
-        //取消用户聊天室黑名单。0正常；1禁言；2禁止加入。
-        voidIMResult1 = ChatroomAdmin.setChatroomBlacklist("chatroom1", "oto9o9__", 0);
-        if (voidIMResult1 != null && voidIMResult1.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("remove chatroom black success");
-        } else {
-            System.out.println("remove chatroom black failure");
-            System.exit(-1);
-        }
-
-        //获取聊天室黑名单
-        blackInfos = ChatroomAdmin.getChatroomBlacklist("chatroom1");
-        if (blackInfos != null && blackInfos.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            boolean success = true;
-            for (OutputChatroomBlackInfos.OutputChatroomBlackInfo info : blackInfos.getResult().infos) {
-                if (info.userId.equals("oto9o9__")) {
-                    success = false;
-                    break;
+            //获取聊天室黑名单
+            IMResult<OutputChatroomBlackInfos> blackInfos = ChatroomAdmin.getChatroomBlacklist("chatroom1");
+            if (blackInfos != null && blackInfos.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && !blackInfos.getResult().infos.isEmpty()) {
+                boolean success = false;
+                for (OutputChatroomBlackInfos.OutputChatroomBlackInfo info : blackInfos.getResult().infos) {
+                    if (info.userId.equals("oto9o9__")) {
+                        success = true;
+                        break;
+                    }
                 }
+                if (success) {
+                    System.out.println("add chatroom black success");
+                } else {
+                    System.out.println("add chatroom black failure");
+                    System.exit(-1);
+                }
+            } else {
+                System.out.println("add chatroom black failure");
+                System.exit(-1);
             }
-            if (success) {
+
+            //取消用户聊天室黑名单。0正常；1禁言；2禁止加入。
+            voidIMResult1 = ChatroomAdmin.setChatroomBlacklist("chatroom1", "oto9o9__", 0);
+            if (voidIMResult1 != null && voidIMResult1.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
                 System.out.println("remove chatroom black success");
             } else {
                 System.out.println("remove chatroom black failure");
                 System.exit(-1);
             }
-        } else {
-            System.out.println("remove chatroom black failure");
-            System.exit(-1);
-        }
 
-        //设置聊天室管理员
-        IMResult<Void> voidIMResult2 = ChatroomAdmin.setChatroomManager("chatroom1", "UserId1", 1);
-        if (voidIMResult2 != null && voidIMResult2.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("add chatroom manager success");
-        } else {
-            System.out.println("add chatroom black failure");
-            System.exit(-1);
-        }
+            //获取聊天室黑名单
+            blackInfos = ChatroomAdmin.getChatroomBlacklist("chatroom1");
+            if (blackInfos != null && blackInfos.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                boolean success = true;
+                for (OutputChatroomBlackInfos.OutputChatroomBlackInfo info : blackInfos.getResult().infos) {
+                    if (info.userId.equals("oto9o9__")) {
+                        success = false;
+                        break;
+                    }
+                }
+                if (success) {
+                    System.out.println("remove chatroom black success");
+                } else {
+                    System.out.println("remove chatroom black failure");
+                    System.exit(-1);
+                }
+            } else {
+                System.out.println("remove chatroom black failure");
+                System.exit(-1);
+            }
 
-        //获取聊天室管理员
-        IMResult<OutputStringList> managers = ChatroomAdmin.getChatroomManagerList("chatroom1");
-        if (managers != null && managers.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && !managers.getResult().getList().isEmpty() && managers.getResult().getList().contains("UserId1")) {
+            //设置聊天室管理员
+            IMResult<Void> voidIMResult2 = ChatroomAdmin.setChatroomManager("chatroom1", "UserId1", 1);
+            if (voidIMResult2 != null && voidIMResult2.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("add chatroom manager success");
+            } else {
+                System.out.println("add chatroom black failure");
+                System.exit(-1);
+            }
+
+            //获取聊天室管理员
+            IMResult<OutputStringList> managers = ChatroomAdmin.getChatroomManagerList("chatroom1");
+            if (managers != null && managers.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && !managers.getResult().getList().isEmpty() && managers.getResult().getList().contains("UserId1")) {
                 System.out.println("add chatroom black success");
-        } else {
-            System.out.println("add chatroom black failure");
-            System.exit(-1);
+            } else {
+                System.out.println("add chatroom black failure");
+                System.exit(-1);
+            }
+
+            //取消聊天室管理员
+            IMResult<Void> voidIMResult3 = ChatroomAdmin.setChatroomManager("chatroom1", "UserId1", 0);
+            if (voidIMResult3 != null && voidIMResult3.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("add chatroom manager success");
+            } else {
+                System.out.println("add chatroom black failure");
+                System.exit(-1);
+            }
+
+            //获取聊天室管理员
+            IMResult<OutputStringList> managers2 = ChatroomAdmin.getChatroomManagerList("chatroom1");
+            if (managers2 != null && managers2.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && !managers2.getResult().getList().contains("UserId1")) {
+                System.out.println("add chatroom black success");
+            } else {
+                System.out.println("add chatroom black failure");
+                System.exit(-1);
+            }
         }
-
-        //取消聊天室管理员
-        IMResult<Void> voidIMResult3 = ChatroomAdmin.setChatroomManager("chatroom1", "UserId1", 0);
-        if (voidIMResult3 != null && voidIMResult3.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("add chatroom manager success");
-        } else {
-            System.out.println("add chatroom black failure");
-            System.exit(-1);
-        }
-
-        //获取聊天室管理员
-        IMResult<OutputStringList> managers2 = ChatroomAdmin.getChatroomManagerList("chatroom1");
-        if (managers2 != null && managers2.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && !managers2.getResult().getList().contains("UserId1")) {
-            System.out.println("add chatroom black success");
-        } else {
-            System.out.println("add chatroom black failure");
-            System.exit(-1);
-        }*/
-
     }
 
     static void testRobot() throws Exception {
-        //初始化机器人API
-        RobotHttpUtils.init("http://localhost", "robot1", "123456");
+        //初始化机器人API，注意端口是80，不是18080
+        String robotId = "robot1";
+        RobotHttpUtils.init("http://localhost", robotId, "123456");
+
         //***********************************************
         //****  机器人API
         //***********************************************
+
+        IMResult<InputOutputUserInfo> userInfoIMResult = RobotService.getProfile(robotId);
+        if(userInfoIMResult != null && userInfoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("get profile success");
+        } else {
+            System.out.println("get profile failure");
+            System.exit(-1);
+        }
+
+        String displayName = "testrobot"+System.currentTimeMillis();
+        IMResult<Void> voidIMResult1 = RobotService.updateProfile(Modify_DisplayName, displayName);
+        if(voidIMResult1 != null && voidIMResult1.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("modify profile success");
+        } else {
+            System.out.println("modify profile failure");
+            System.exit(-1);
+        }
+        userInfoIMResult = RobotService.getProfile(robotId);
+        if(userInfoIMResult != null && userInfoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && displayName.equals(userInfoIMResult.getResult().getDisplayName())) {
+            System.out.println("get profile success");
+        } else {
+            System.out.println("get profile failure");
+            System.exit(-1);
+        }
+
+        String robotCallback = "http://hellow123";
+        voidIMResult1 = RobotService.setCallback(robotCallback);
+        if(voidIMResult1 != null && voidIMResult1.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("set callback success");
+        } else {
+            System.out.println("set callback failure");
+            System.exit(-1);
+        }
+
+        IMResult<RobotCallbackPojo> callbackPojoIMResult = RobotService.getCallback();
+        if(callbackPojoIMResult != null && callbackPojoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && robotCallback.equals(callbackPojoIMResult.getResult().getUrl())) {
+            System.out.println("get callback success");
+        } else {
+            System.out.println("get callback failure");
+            System.exit(-1);
+        }
+
+        voidIMResult1 = RobotService.deleteCallback();
+        if(voidIMResult1 != null && voidIMResult1.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("delete callback success");
+        } else {
+            System.out.println("delete callback failure");
+            System.exit(-1);
+        }
+
+        callbackPojoIMResult = RobotService.getCallback();
+        if(callbackPojoIMResult != null && callbackPojoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && StringUtil.isNullOrEmpty(callbackPojoIMResult.getResult().getUrl())) {
+            System.out.println("get callback success");
+        } else {
+            System.out.println("get callback failure");
+            System.exit(-1);
+        }
+
         Conversation conversation = new Conversation();
         conversation.setTarget("user2");
         conversation.setType(ProtoConstants.ConversationType.ConversationType_Private);
@@ -732,6 +938,182 @@ public class Main {
             System.out.println("robot get user info by userId failure");
             System.exit(-1);
         }
+
+        String groupId = "robot_group" + System.currentTimeMillis();
+        PojoGroupInfo groupInfo = new PojoGroupInfo();
+        groupInfo.setTarget_id(groupId);
+        groupInfo.setName("test_group");
+        groupInfo.setType(2);
+        groupInfo.setExtra("hello extra");
+        groupInfo.setPortrait("http://portrait");
+        List<PojoGroupMember> members = new ArrayList<>();
+
+        PojoGroupMember member1 = new PojoGroupMember();
+        member1.setMember_id("user1");
+        members.add(member1);
+
+        PojoGroupMember member2 = new PojoGroupMember();
+        member2.setMember_id("user2");
+        members.add(member2);
+
+        PojoGroupMember member3 = new PojoGroupMember();
+        member3.setMember_id("user3");
+        members.add(member3);
+
+        IMResult<OutputCreateGroupResult> resultCreateGroup = RobotService.createGroup(groupInfo, members, null, null);
+        if (resultCreateGroup != null && resultCreateGroup.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("create group success");
+        } else {
+            System.out.println("create group failure");
+            System.exit(-1);
+        }
+
+        IMResult<PojoGroupInfo> resultGetGroupInfo = RobotService.getGroupInfo(groupInfo.getTarget_id());
+        if (resultGetGroupInfo != null && resultGetGroupInfo.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            if (groupInfo.getExtra().equals(resultGetGroupInfo.getResult().getExtra())
+                && groupInfo.getName().equals(resultGetGroupInfo.getResult().getName())
+                && robotId.equals(resultGetGroupInfo.getResult().getOwner())) {
+                System.out.println("get group success");
+            } else {
+                System.out.println("group info is not expected");
+                System.exit(-1);
+            }
+        } else {
+            System.out.println("create group failure");
+            System.exit(-1);
+        }
+
+        IMResult<Void> voidIMResult = RobotService.modifyGroupInfo(groupInfo.getTarget_id(), ProtoConstants.ModifyGroupInfoType.Modify_Group_Name,"HelloWorld", null, null);
+        if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("modify group success");
+        } else {
+            System.out.println("modify group failure");
+            System.exit(-1);
+        }
+
+
+        IMResult<OutputGroupMemberList> resultGetMembers = RobotService.getGroupMembers(groupInfo.getTarget_id());
+        if (resultGetMembers != null && resultGetMembers.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("get group member success");
+        } else {
+            System.out.println("create group failure");
+            System.exit(-1);
+        }
+
+        PojoGroupMember m = new PojoGroupMember();
+        m.setMember_id("user1");
+        m.setAlias("hello user1");
+
+        voidIMResult = RobotService.addGroupMembers(groupInfo.getTarget_id(), Arrays.asList(m), null, null);
+        if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("add group member success");
+        } else {
+            System.out.println("add group member failure");
+            System.exit(-1);
+        }
+
+        voidIMResult = RobotService.kickoffGroupMembers(groupInfo.getTarget_id(), Arrays.asList("user3"), null, null);
+        if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("kickoff group member success");
+        } else {
+            System.out.println("kickoff group member failure");
+            System.exit(-1);
+        }
+
+        voidIMResult = RobotService.setGroupMemberAlias(groupInfo.getTarget_id(), "user3", "test user3", null, null);
+        if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("set group member alias success");
+        } else {
+            System.out.println("set group member alias failure");
+            System.exit(-1);
+        }
+
+        if(commercialServer) {
+            voidIMResult = RobotService.setGroupManager(groupInfo.getTarget_id(), Arrays.asList("user4", "user5"), true, null, null);
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("set group manager success");
+            } else {
+                System.out.println("set group manager failure");
+                System.exit(-1);
+            }
+
+            voidIMResult = RobotService.setGroupManager(groupInfo.getTarget_id(), Arrays.asList("user4", "user5"), false, null, null);
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("cancel group manager success");
+            } else {
+                System.out.println("cancel group manager failure");
+                System.exit(-1);
+            }
+        }
+
+
+
+        //仅专业版支持
+        if (commercialServer) {
+            //开启群成员禁言
+            voidIMResult = RobotService.muteGroupMember(groupInfo.getTarget_id(), Arrays.asList("user5"), true, null, null);
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("mute group member success");
+            } else {
+                System.out.println("mute group member failure");
+                System.exit(-1);
+            }
+            //关闭群成员禁言
+            voidIMResult = RobotService.muteGroupMember(groupInfo.getTarget_id(), Arrays.asList("user5"), false, null, null);
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("unmute group member success");
+            } else {
+                System.out.println("unmute group member failure");
+                System.exit(-1);
+            }
+
+            //开启群成员白名单，当群全局禁言时，白名单用户可以发言
+            voidIMResult = RobotService.allowGroupMember(groupInfo.getTarget_id(), Arrays.asList("user5"), true, null, null);
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("allow group member success");
+            } else {
+                System.out.println("allow group member failure");
+                System.exit(-1);
+            }
+
+            //关闭群成员白名单
+            voidIMResult = RobotService.allowGroupMember(groupInfo.getTarget_id(), Arrays.asList("user5"), false, null, null);
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("unallow group member success");
+            } else {
+                System.out.println("unallow group member failure");
+                System.exit(-1);
+            }
+        }
+        voidIMResult = RobotService.transferGroup(groupInfo.getTarget_id(), "user2", null, null);
+        if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("transfer success");
+        } else {
+            System.out.println("create group failure");
+            System.exit(-1);
+        }
+
+        resultGetGroupInfo = RobotService.getGroupInfo(groupInfo.getTarget_id());
+        if (resultGetGroupInfo != null && resultGetGroupInfo.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            if ("user2".equals(resultGetGroupInfo.getResult().getOwner())) {
+                groupInfo.setOwner("user2");
+            } else {
+                System.out.println("group info is not expected");
+                System.exit(-1);
+            }
+        } else {
+            System.out.println("create group failure");
+            System.exit(-1);
+        }
+
+        voidIMResult = RobotService.quitGroup(groupInfo.getTarget_id(), null, null);
+        if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("quit group success");
+        } else {
+            System.out.println("quit group failure");
+            System.exit(-1);
+        }
+
     }
 
     //***测试频道API功能，仅专业版支持***
@@ -786,6 +1168,9 @@ public class Main {
         InputCreateChannel inputCreateChannel = new InputCreateChannel();
         inputCreateChannel.setName("testChannel");
         inputCreateChannel.setOwner("userId1");
+        String secret = "channelsecret";
+        inputCreateChannel.setSecret(secret);
+        inputCreateChannel.setState(0xff);
         IMResult<OutputCreateChannel> resultCreateChannel = GeneralAdmin.createChannel(inputCreateChannel);
         if (resultCreateChannel != null && resultCreateChannel.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
             System.out.println("create channel success");
@@ -794,57 +1179,60 @@ public class Main {
             System.exit(-1);
         }
 
-        //2. 初始化api
-        ChannelServiceApi channelServiceApi = new ChannelServiceApi("http://localhost", resultCreateChannel.getResult().getTargetId(), resultCreateChannel.getResult().getSecret());
 
-        //3. 测试channel api功能
-        IMResult<Void> resultVoid = channelServiceApi.subscribe("userId2");
-        if (resultVoid != null && resultVoid.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("subscribe success");
-        } else {
-            System.out.println("subscribe failure");
-            System.exit(-1);
-        }
+        //2. 初始化api，注意端口是80，不是18080
+        ChannelServiceApi channelServiceApi = new ChannelServiceApi("http://localhost", resultCreateChannel.getResult().getTargetId(), secret);
 
-        resultVoid = channelServiceApi.subscribe("userId3");
-        if (resultVoid != null && resultVoid.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("subscribe done");
-        } else {
-            System.out.println("subscribe failure");
-            System.exit(-1);
-        }
 
-        IMResult<OutputStringList> resultStringList = channelServiceApi.getSubscriberList();
-        if (resultStringList != null && resultStringList.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && resultStringList.getResult().getList().contains("userId2") && resultStringList.getResult().getList().contains("userId3")) {
-            System.out.println("get subscriber done");
-        } else {
-            System.out.println("get subscriber failure");
-            System.exit(-1);
-        }
+            //3. 测试channel api功能
+            IMResult<Void> resultVoid = channelServiceApi.subscribe("userId2");
+            if (resultVoid != null && resultVoid.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("subscribe success");
+            } else {
+                System.out.println("subscribe failure");
+                System.exit(-1);
+            }
 
-        resultVoid = channelServiceApi.unsubscribe("userId2");
-        if (resultVoid != null && resultVoid.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("unsubscriber done");
-        } else {
-            System.out.println("unsubscriber failure");
-            System.exit(-1);
-        }
+            resultVoid = channelServiceApi.subscribe("userId3");
+            if (resultVoid != null && resultVoid.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("subscribe done");
+            } else {
+                System.out.println("subscribe failure");
+                System.exit(-1);
+            }
 
-        resultStringList = channelServiceApi.getSubscriberList();
-        if (resultStringList != null && resultStringList.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && resultStringList.getResult().getList().contains("userId3") && !resultStringList.getResult().getList().contains("userId2")) {
-            System.out.println("get subscriber done");
-        } else {
-            System.out.println("get subscriber failure");
-            System.exit(-1);
-        }
+            IMResult<OutputStringList> resultStringList = channelServiceApi.getSubscriberList();
+            if (resultStringList != null && resultStringList.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && resultStringList.getResult().getList().contains("userId2") && resultStringList.getResult().getList().contains("userId3")) {
+                System.out.println("get subscriber done");
+            } else {
+                System.out.println("get subscriber failure");
+                System.exit(-1);
+            }
 
-        IMResult<InputOutputUserInfo> resultGetUserInfo1 = channelServiceApi.getUserInfo("userId3");
-        if (resultGetUserInfo1 != null && resultGetUserInfo1.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("get user info success");
-        } else {
-            System.out.println("get user info failure");
-            System.exit(-1);
-        }
+            resultVoid = channelServiceApi.unsubscribe("userId2");
+            if (resultVoid != null && resultVoid.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("unsubscriber done");
+            } else {
+                System.out.println("unsubscriber failure");
+                System.exit(-1);
+            }
+
+            resultStringList = channelServiceApi.getSubscriberList();
+            if (resultStringList != null && resultStringList.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && resultStringList.getResult().getList().contains("userId3") && !resultStringList.getResult().getList().contains("userId2")) {
+                System.out.println("get subscriber done");
+            } else {
+                System.out.println("get subscriber failure");
+                System.exit(-1);
+            }
+
+            IMResult<InputOutputUserInfo> resultGetUserInfo1 = channelServiceApi.getUserInfo("userId3");
+            if (resultGetUserInfo1 != null && resultGetUserInfo1.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("get user info success");
+            } else {
+                System.out.println("get user info failure");
+                System.exit(-1);
+            }
+
 
 
         MessagePayload payload = new MessagePayload();
@@ -869,19 +1257,55 @@ public class Main {
             System.exit(-1);
         }
 
-        IMResult<Void> voidIMResult = channelServiceApi.modifyChannelInfo(ProtoConstants.ModifyChannelInfoType.Modify_Channel_Desc, "this is a test channel, update at:" + new Date().toString());
-        if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("modify channel profile success");
+        if (commercialServer) {
+            IMResult<Void> voidIMResult = channelServiceApi.modifyChannelInfo(ProtoConstants.ModifyChannelInfoType.Modify_Channel_Desc, "this is a test channel, update at:" + new Date().toString());
+            if (voidIMResult != null && voidIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("modify channel profile success");
+            } else {
+                System.out.println("modify channel profile failure");
+                System.exit(-1);
+            }
+
+            IMResult<OutputGetChannelInfo> outputGetChannelInfoIMResult = channelServiceApi.getChannelInfo();
+            if (outputGetChannelInfoIMResult != null && outputGetChannelInfoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                System.out.println("get channel info success");
+            } else {
+                System.out.println("get channel info failure");
+                System.exit(-1);
+            }
+        }
+    }
+    static void testSensitiveApi() throws Exception {
+        List<String> words = Arrays.asList("a","b","c");
+        IMResult<Void> addResult = SensitiveAdmin.addSensitives(words);
+        if (addResult != null && addResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("Add sensitive word response success");
         } else {
-            System.out.println("modify channel profile failure");
+            System.out.println("Add sensitive word response error");
             System.exit(-1);
         }
 
-        IMResult<OutputGetChannelInfo> outputGetChannelInfoIMResult = channelServiceApi.getChannelInfo();
-        if (outputGetChannelInfoIMResult != null && outputGetChannelInfoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
-            System.out.println("destroy user success");
+        IMResult<InputOutputSensitiveWords> swResult = SensitiveAdmin.getSensitives();
+        if (swResult != null && swResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && swResult.getResult().getWords().containsAll(words)) {
+            System.out.println("Sensitive word added");
         } else {
-            System.out.println("destroy user failure");
+            System.out.println("Sensitive word not added");
+            System.exit(-1);
+        }
+
+        IMResult<Void> removeResult = SensitiveAdmin.removeSensitives(words);
+        if (removeResult != null && removeResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+            System.out.println("Remove sensitive word response success");
+        } else {
+            System.out.println("Remove sensitive word response error");
+            System.exit(-1);
+        }
+
+        swResult = SensitiveAdmin.getSensitives();
+        if (swResult != null && swResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS && !swResult.getResult().getWords().containsAll(words)) {
+            System.out.println("Sensitive word removed");
+        } else {
+            System.out.println("Sensitive word not removed");
             System.exit(-1);
         }
     }

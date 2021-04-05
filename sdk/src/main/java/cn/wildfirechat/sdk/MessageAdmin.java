@@ -9,11 +9,16 @@ import java.util.List;
 
 public class MessageAdmin {
     public static IMResult<SendMessageResult> sendMessage(String sender, Conversation conversation, MessagePayload payload) throws Exception {
+        return sendMessage(sender, conversation, payload, null);
+    }
+    //toUsers为发送给会话中部分用户用的，正常为null，仅当需要指定群/频道/聊天室中部分接收用户时使用
+    public static IMResult<SendMessageResult> sendMessage(String sender, Conversation conversation, MessagePayload payload, List<String> toUsers) throws Exception {
         String path = APIPath.Msg_Send;
         SendMessageData messageData = new SendMessageData();
         messageData.setSender(sender);
         messageData.setConv(conversation);
         messageData.setPayload(payload);
+        messageData.setToUsers(toUsers);
         return AdminHttpUtils.httpJsonPost(path, messageData, SendMessageResult.class);
     }
 
@@ -36,16 +41,26 @@ public class MessageAdmin {
 
     /**
      * 撤回群发或者广播的消息
-     * @param target 目标用户
+     * @param operator 操作者
      * @param messageUid 消息唯一ID
      * @return
      * @throws Exception
      */
-    public static IMResult<Void> recallBroadcastOrMulticastMessage(String target, long messageUid) throws Exception {
-        String path = APIPath.Msg_Recall;
+    public static IMResult<Void> recallBroadCastMessage(String operator, long messageUid) throws Exception {
+        String path = APIPath.Msg_RecallBroadCast;
         RecallMessageData messageData = new RecallMessageData();
-        messageData.setOperator(target);
+        messageData.setOperator(operator);
         messageData.setMessageUid(messageUid);
+        return AdminHttpUtils.httpJsonPost(path, messageData, Void.class);
+    }
+
+    public static IMResult<Void> recallMultiCastMessage(String operator, long messageUid, List<String> receivers) throws Exception {
+        String path = APIPath.Msg_RecallMultiCast;
+        RecallMultiCastMessageData messageData = new RecallMultiCastMessageData();
+        messageData.operator = operator;
+        messageData.messageUid = messageUid;
+        messageData.receivers = receivers;
+
         return AdminHttpUtils.httpJsonPost(path, messageData, Void.class);
     }
 

@@ -8,7 +8,7 @@ import cn.wildfirechat.sdk.utilities.AdminHttpUtils;
 public class RelationAdmin {
     public static IMResult<Void> setUserFriend(String userId, String targetId, boolean isFriend, String extra) throws Exception {
         String path = APIPath.Friend_Update_Status;
-        InputFriendRequest input = new InputFriendRequest();
+        InputUpdateFriendStatusRequest input = new InputUpdateFriendStatusRequest();
         input.setUserId(userId);
         input.setFriendUid(targetId);
         input.setStatus(isFriend ? 0 : 1); //历史遗留问题，在IM数据库中0是好友，1是好友被删除。
@@ -54,5 +54,21 @@ public class RelationAdmin {
         input.setOperator(operator);
         input.setTargetId(targetId);
         return AdminHttpUtils.httpJsonPost(path, input, OutputGetAlias.class);
+    }
+
+    public static IMResult<Void> sendFriendRequest(String userId, String targetId, String reason, boolean force) throws Exception {
+        String path = APIPath.Friend_Send_Request;
+        InputAddFriendRequest input = new InputAddFriendRequest();
+        input.setUserId(userId);
+        input.setFriendUid(targetId);
+        input.setReason(reason);
+        input.setForce(force);
+        return AdminHttpUtils.httpJsonPost(path, input, Void.class);
+    }
+
+    public static IMResult<RelationPojo> getRelation(String userId, String targetId) throws Exception {
+        String path = APIPath.Relation_Get;
+        StringPairPojo input = new StringPairPojo(userId, targetId);
+        return AdminHttpUtils.httpJsonPost(path, input, RelationPojo.class);
     }
 }

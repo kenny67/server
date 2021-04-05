@@ -12,9 +12,12 @@ public interface IMTopic {
 	String SendMessageTopic = "MS";
     String MultiCastMessageTopic = "MMC";
     String RecallMessageTopic = "MR";
+    String RecallMultiCastMessageTopic = "MRMC";
 	String PullMessageTopic = "MP";
 	String NotifyMessageTopic = "MN";
     String NotifyRecallMessageTopic = "RMN";
+    String NotifyOffline = "ROFL";
+
     String BroadcastMessageTopic = "MBC";
 
     String GetUserSettingTopic = "UG";
@@ -28,6 +31,7 @@ public interface IMTopic {
 	String DismissGroupTopic = "GD";
 	String ModifyGroupInfoTopic = "GMI";
     String ModifyGroupAliasTopic = "GMA";
+    String ModifyGroupMemberAliasTopic = "GMMA";
     String GetGroupInfoTopic = "GPGI";
     String GetGroupMemberTopic = "GPGM";
     String TransferGroupTopic = "GTG";

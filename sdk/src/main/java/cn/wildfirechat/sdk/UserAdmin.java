@@ -29,6 +29,14 @@ public class UserAdmin {
         return AdminHttpUtils.httpJsonPost(path, user, OutputCreateUser.class);
     }
 
+    public static IMResult<Void> updateUserInfo(InputOutputUserInfo user, int/*UpdateUserInfoMask*/ flag) throws Exception {
+        String path = APIPath.Update_User;
+        InputUpdateUserInfo updateUserInfo = new InputUpdateUserInfo();
+        updateUserInfo.flag = flag;
+        updateUserInfo.userInfo = user;
+        return AdminHttpUtils.httpJsonPost(path, updateUserInfo, Void.class);
+    }
+
     public static IMResult<OutputCreateRobot> createRobot(InputCreateRobot robot) throws Exception {
         String path = APIPath.Create_Robot;
         return AdminHttpUtils.httpJsonPost(path, robot, OutputCreateRobot.class);
@@ -61,6 +69,15 @@ public class UserAdmin {
         String path = APIPath.User_Get_Online_Status;
         InputGetUserInfo getUserInfo = new InputGetUserInfo(userId, null, null);
         return AdminHttpUtils.httpJsonPost(path, getUserInfo, OutputCheckUserOnline.class);
+    }
+
+    /* 强迫用户下线，需要用户重新获取token才能进行连接。
+    userId必须有效，clientId可以为空，当为空时，踢下线说有客户端，当不为空时仅踢掉对应客户端。
+     */
+    public static IMResult<Void> kickoffUserClient(String userId, String clientId) throws Exception {
+        String path = APIPath.User_Kickoff_Client;
+        StringPairPojo pojo = new StringPairPojo(userId, clientId);
+        return AdminHttpUtils.httpJsonPost(path, pojo, Void.class);
     }
 
     public static IMResult<Void> destroyUser(String userId) throws Exception {

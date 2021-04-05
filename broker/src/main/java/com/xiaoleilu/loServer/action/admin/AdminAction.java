@@ -44,11 +44,22 @@ abstract public class AdminAction extends Action {
         if (!mLimitCounter.isGranted("admin")) {
             return ErrorCode.ERROR_CODE_OVER_FREQUENCY;
         }
+        
         String nonce = request.getHeader("nonce");
+        if (StringUtil.isNullOrEmpty(nonce)) {
+            nonce = request.getHeader("Nonce");
+        }
         String timestamp = request.getHeader("timestamp");
+        if (StringUtil.isNullOrEmpty(timestamp)) {
+            timestamp = request.getHeader("Timestamp");
+        }
         String sign = request.getHeader("sign");
+        if (StringUtil.isNullOrEmpty(sign)) {
+            sign = request.getHeader("Sign");
+        }
+        
         if (StringUtil.isNullOrEmpty(nonce) || StringUtil.isNullOrEmpty(timestamp) || StringUtil.isNullOrEmpty(sign)) {
-            return ErrorCode.INVALID_PARAMETER;
+            return ErrorCode.ERROR_CODE_API_NOT_SIGNED;
         }
 
         Long ts;
@@ -57,7 +68,7 @@ abstract public class AdminAction extends Action {
         } catch (Exception e) {
             e.printStackTrace();
             Utility.printExecption(LOG, e);
-            return ErrorCode.INVALID_PARAMETER;
+            return ErrorCode.ERROR_CODE_API_NOT_SIGNED;
         }
 
         if (!NO_CHECK_TIME && System.currentTimeMillis() - ts > 2 * 60 * 60 * 1000) {

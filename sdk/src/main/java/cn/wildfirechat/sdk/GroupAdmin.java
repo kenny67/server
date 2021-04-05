@@ -72,17 +72,11 @@ public class GroupAdmin {
         return AdminHttpUtils.httpJsonPost(path, input, OutputGroupMemberList.class);
     }
 
-    public static IMResult<Void> addGroupMembers(String operator, String groupId, List<String> groupMemberIds, List<Integer> to_lines, MessagePayload  notify_message) throws Exception {
+    public static IMResult<Void> addGroupMembers(String operator, String groupId, List<PojoGroupMember> groupMembers, List<Integer> to_lines, MessagePayload  notify_message) throws Exception {
         String path = APIPath.Group_Member_Add;
         InputAddGroupMember addGroupMember = new InputAddGroupMember();
         addGroupMember.setGroup_id(groupId);
-        List<PojoGroupMember> members = new ArrayList<>();
-        for (String mid : groupMemberIds) {
-            PojoGroupMember m = new PojoGroupMember();
-            m.setMember_id(mid);
-            members.add(m);
-        }
-        addGroupMember.setMembers(members);
+        addGroupMember.setMembers(groupMembers);
         addGroupMember.setOperator(operator);
         addGroupMember.setTo_lines(to_lines);
         addGroupMember.setNotify_message(notify_message);
@@ -101,12 +95,24 @@ public class GroupAdmin {
         return AdminHttpUtils.httpJsonPost(path, addGroupMember, Void.class);
     }
 
-    public static IMResult<Void> muteGroupMemeber(String operator, String groupId, List<String> groupMemberIds, boolean isManager, List<Integer> to_lines, MessagePayload  notify_message) throws Exception {
+    public static IMResult<Void> muteGroupMemeber(String operator, String groupId, List<String> groupMemberIds, boolean isMute, List<Integer> to_lines, MessagePayload  notify_message) throws Exception {
         String path = APIPath.Group_Mute_Member;
         InputMuteGroupMember addGroupMember = new InputMuteGroupMember();
         addGroupMember.setGroup_id(groupId);
         addGroupMember.setMembers(groupMemberIds);
-        addGroupMember.setIs_manager(isManager);
+        addGroupMember.setIs_manager(isMute);
+        addGroupMember.setOperator(operator);
+        addGroupMember.setTo_lines(to_lines);
+        addGroupMember.setNotify_message(notify_message);
+        return AdminHttpUtils.httpJsonPost(path, addGroupMember, Void.class);
+    }
+
+    public static IMResult<Void> allowGroupMemeber(String operator, String groupId, List<String> groupMemberIds, boolean isAllow, List<Integer> to_lines, MessagePayload  notify_message) throws Exception {
+        String path = APIPath.Group_Allow_Member;
+        InputMuteGroupMember addGroupMember = new InputMuteGroupMember();
+        addGroupMember.setGroup_id(groupId);
+        addGroupMember.setMembers(groupMemberIds);
+        addGroupMember.setIs_manager(isAllow);
         addGroupMember.setOperator(operator);
         addGroupMember.setTo_lines(to_lines);
         addGroupMember.setNotify_message(notify_message);
@@ -132,6 +138,18 @@ public class GroupAdmin {
         quitGroup.setTo_lines(to_lines);
         quitGroup.setNotify_message(notify_message);
         return AdminHttpUtils.httpJsonPost(path, quitGroup, Void.class);
+    }
+
+    public static IMResult<Void> setGroupMemberAlias(String operator, String groupId, String memberId, String alias, List<Integer> to_lines, MessagePayload  notify_message) throws Exception {
+        String path = APIPath.Group_Set_Member_Alias;
+        InputSetGroupMemberAlias input = new InputSetGroupMemberAlias();
+        input.setGroup_id(groupId);
+        input.setOperator(operator);
+        input.setMemberId(memberId);
+        input.setAlias(alias);
+        input.setTo_lines(to_lines);
+        input.setNotify_message(notify_message);
+        return AdminHttpUtils.httpJsonPost(path, input, Void.class);
     }
 
     public static IMResult<OutputGroupIds> getUserGroups(String user) throws Exception {

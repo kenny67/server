@@ -94,6 +94,7 @@ public class Server {
 
     private ThreadPoolExecutorWrapper dbScheduler;
     private ThreadPoolExecutorWrapper imBusinessScheduler;
+    private ThreadPoolExecutorWrapper callbackScheduler;
 
     private IConfig mConfig;
 
@@ -225,7 +226,7 @@ public class Server {
             handlers = Collections.emptyList();
         }
         DBUtil.init(config);
-        String strKey = config.getProperty(BrokerConstants.CLIENT_PROTO_SECRET_KEY);
+        String strKey = "0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x78,0x79,0x7A,0x7B,0x7C,0x7D,0x7E,0x7F";
         String[] strs = strKey.split(",");
         if(strs.length != 16) {
             LOG.error("Key error, it length should be 16");
@@ -243,6 +244,7 @@ public class Server {
         int threadNum = Runtime.getRuntime().availableProcessors() * 2;
         dbScheduler = new ThreadPoolExecutorWrapper(Executors.newScheduledThreadPool(threadNum), threadNum, "db");
         imBusinessScheduler = new ThreadPoolExecutorWrapper(Executors.newScheduledThreadPool(threadNum), threadNum, "business");
+        callbackScheduler = new ThreadPoolExecutorWrapper(Executors.newScheduledThreadPool(1), 1, "callback");
 
         final String handlerProp = System.getProperty(BrokerConstants.INTERCEPT_HANDLER_PROPERTY_NAME);
         if (handlerProp != null) {
@@ -250,6 +252,9 @@ public class Server {
         }
 
         initMediaServerConfig(config);
+
+        String monitorEventAddress = config.getProperty(MONITOR_Exception_Event_Address);
+        Utility.setMonitorEventAddress(monitorEventAddress);
 
         final String persistencePath = config.getProperty(BrokerConstants.PERSISTENT_STORE_PROPERTY_NAME);
         LOG.info("Configuring Using persistent store file, path={}", persistencePath);
@@ -431,6 +436,7 @@ public class Server {
         System.out.println("Server will flush data to db before shutting down, please wait 5 seconds!");
         LOG.info("Unbinding server from the configured ports");
         m_shutdowning = true;
+        DBUtil.SystemExiting = true;
 
         m_acceptor.close();
         LOG.trace("Stopping MQTT protocol processor");
@@ -447,6 +453,7 @@ public class Server {
 
         dbScheduler.shutdown();
         imBusinessScheduler.shutdown();
+        callbackScheduler.shutdown();
 
         LOG.info("Moquette server has been stopped.");
     }
@@ -506,5 +513,9 @@ public class Server {
 
     public ThreadPoolExecutorWrapper getImBusinessScheduler() {
         return imBusinessScheduler;
+    }
+
+    public ThreadPoolExecutorWrapper getCallbackScheduler() {
+        return callbackScheduler;
     }
 }

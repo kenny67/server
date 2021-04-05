@@ -34,10 +34,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.*;
 
 import static cn.wildfirechat.common.ErrorCode.ERROR_CODE_OVER_FREQUENCY;
 import static cn.wildfirechat.common.ErrorCode.ERROR_CODE_SUCCESS;
@@ -207,8 +204,9 @@ abstract public class IMHandler<T> {
                         errorCode = ErrorCode.ERROR_CODE_SERVER_ERROR;
                     }
                 }
-
-                response(ackPayload, errorCode, callback);
+                if(errorCode != ErrorCode.INVALID_ASYNC_HANDLING) {
+                    response(ackPayload, errorCode, callback);
+                }
             } else {
                 LOG.error("Handler {} preAction failure", this.getClass().getName());
                 ByteBuf ackPayload = Unpooled.buffer(1);
@@ -239,17 +237,17 @@ abstract public class IMHandler<T> {
         Set<String> notifyReceivers = new LinkedHashSet<>();
 
         WFCMessage.Message.Builder messageBuilder = message.toBuilder();
-        int pullType = m_messagesStore.getNotifyReceivers(username, messageBuilder, notifyReceivers, false);
+        int pullType = m_messagesStore.getNotifyReceivers(username, messageBuilder, notifyReceivers);
         mServer.getImBusinessScheduler().execute(() -> this.publisher.publish2Receivers(messageBuilder.build(), notifyReceivers, clientID, pullType));
         return notifyReceivers.size();
     }
 
-    protected long saveAndPublish(String username, String clientID, WFCMessage.Message message, boolean ignoreMsg) {
+    protected long saveAndPublish(String username, String clientID, WFCMessage.Message message) {
         Set<String> notifyReceivers = new LinkedHashSet<>();
 
         message = m_messagesStore.storeMessage(username, clientID, message);
         WFCMessage.Message.Builder messageBuilder = message.toBuilder();
-        int pullType = m_messagesStore.getNotifyReceivers(username, messageBuilder, notifyReceivers, ignoreMsg);
+        int pullType = m_messagesStore.getNotifyReceivers(username, messageBuilder, notifyReceivers);
         mServer.getImBusinessScheduler().execute(() -> this.publisher.publish2Receivers(messageBuilder.build(), notifyReceivers, clientID, pullType));
         return notifyReceivers.size();
     }
@@ -266,6 +264,15 @@ abstract public class IMHandler<T> {
         notifyReceivers.addAll(targets);
         WFCMessage.Message updatedMessage = m_messagesStore.storeMessage(username, clientID, message);
         mServer.getImBusinessScheduler().execute(() -> publisher.publish2Receivers(updatedMessage, notifyReceivers, clientID, ProtoConstants.PullType.Pull_Normal));
+        return notifyReceivers.size();
+    }
+    protected long publishRecallMultiCastMsg(long messageUid, List<String> receivers) {
+        WFCMessage.Message updatedMessage = m_messagesStore.getMessage(messageUid);
+
+        Set<String> notifyReceivers = new HashSet<>(receivers);
+        LOG.info("Multicast recall receiver count: {}", notifyReceivers.size());
+        mServer.getImBusinessScheduler().execute(() -> publisher.publish2Receivers(updatedMessage, notifyReceivers, null, ProtoConstants.PullType.Pull_Normal));
+
         return notifyReceivers.size();
     }
 }

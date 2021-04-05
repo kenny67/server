@@ -28,6 +28,7 @@ public class ProtoConstants {
         int GroupMemberType_Owner = 2;
         int GroupMemberType_Silent = 3;
         int GroupMemberType_Removed = 4;
+        int GroupMemberType_Allowed = 5;
     }
 
     //message FriendRequest -> status
@@ -163,6 +164,54 @@ public class ProtoConstants {
         int Message_Ignore = 1;
     }
 
+    public interface GroupUpdateEventType {
+        int Group_Event_Create = 0;
+        int Group_Event_Update = 1;
+        int Group_Event_Transfer = 2;
+        int Group_Event_Mute = 3;
+        int Group_Event_Unmute = 4;
+        int Group_Event_Destroy = 5;
+    }
+
+    public interface GroupMemberUpdateEventType {
+        int Group_Member_Event_Join = 0;
+        int Group_Member_Event_Leave = 1;
+        int Group_Member_Event_Kickoff = 2;
+        int Group_Member_Event_Type_Update = 3;
+        int Group_Member_Event_Alias = 4;
+    }
+
+    public interface ChannelUpdateEventType {
+        int Channel_Event_Create = 0;
+        int Channel_Event_Update = 1;
+        int Channel_Event_Transfer = 2;
+        int Channel_Event_Destroy = 3;
+    }
+
+    public interface ChatroomUpdateEventType {
+        int Chatroom_Event_Create = 0;
+        int Chatroom_Event_Destroy = 1;
+    }
+
+    public interface ChatroomMemberUpdateEventType {
+        int Chatroom_Member_Event_Join = 0;
+        int Chatroom_Member_Event_Leave = 1;
+        int Chatroom_Member_Event_Kickoff = 2;
+        int Chatroom_Member_Event_Mute = 3;
+        int Chatroom_Member_Event_Unmute = 4;
+    }
+
+    public interface UpdateUserInfoMask {
+        int Update_User_DisplayName = 0x01;
+        int Update_User_Portrait = 0x02;
+        int Update_User_Gender = 0x04;
+        int Update_User_Mobile = 0x08;
+        int Update_User_Email = 0x10;
+        int Update_User_Address = 0x20;
+        int Update_User_Company = 0x40;
+        int Update_User_Social = 0x80;
+        int Update_User_Extra = 0x100;
+    }
 
 
     public static final int MESSAGE_CONTENT_TYPE_CREATE_GROUP = 104;
@@ -182,5 +231,8 @@ public class ProtoConstants {
 
     public static final int MESSAGE_CONTENT_TYPE_SET_MANAGER = 117;
     public static final int MESSAGE_CONTENT_TYPE_MUTE_MEMBER = 118;
+    public static final int MESSAGE_CONTENT_TYPE_ALLOW_MEMBER = 119;
+    public static final int MESSAGE_CONTENT_TYPE_KICKOF_GROUP_MEMBER_VISIBLE = 120;
+    public static final int MESSAGE_CONTENT_TYPE_QUIT_GROUP_VISIBLE = 121;
 }
 

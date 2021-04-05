@@ -57,6 +57,8 @@ public class MemorySessionStore implements ISessionsStore {
 
         private int deleted;
 
+        private boolean pullHistoryMsg;
+
         public int getDeleted() {
             return deleted;
         }
@@ -137,6 +139,14 @@ public class MemorySessionStore implements ISessionsStore {
 
         public void setCarrierName(String carrierName) {
             this.carrierName = carrierName;
+        }
+
+        public boolean isPullHistoryMsg() {
+            return pullHistoryMsg;
+        }
+
+        public void setPullHistoryMsg(boolean pullHistoryMsg) {
+            this.pullHistoryMsg = pullHistoryMsg;
         }
 
         public long getUpdateDt() {
@@ -339,18 +349,22 @@ public class MemorySessionStore implements ISessionsStore {
         Session session = sessions.get(clientID);
 
         if (session != null && !session.username.equals(username)) {
-            if (userSessions.get(username) != null) {
-                userSessions.get(username).remove(clientID);
+            if (userSessions.get(session.username) != null) {
+                userSessions.get(session.username).remove(clientID);
             }
+            session = null;
         }
         ClientSession clientSession = new ClientSession(clientID, this);
-        session = databaseStore.getSession(username, clientID, clientSession);
-
-        if (session == null) {
-            session = databaseStore.createSession(username, clientID, clientSession, platform);
+        if(session == null) {
+            session = databaseStore.getSession(username, clientID, clientSession);
+            if (session == null) {
+                session = databaseStore.createSession(username, clientID, clientSession, platform);
+            }
         }
-        sessions.put(clientID, session);
 
+        sessions.put(clientID, session);
+        ConcurrentSkipListSet<String> sessionSet = getUserSessionSet(username);
+        sessionSet.add(clientID);
 
         if (session.getDeleted() > 0) {
             session.setDeleted(0);
@@ -361,7 +375,7 @@ public class MemorySessionStore implements ISessionsStore {
             session.setPlatform(platform);
             databaseStore.updateSessionPlatform(username, clientID, platform);
         }
-
+        databaseStore.clearMultiUser(username, clientID);
 
         if (!supportMultiEndpoint && platform > 0) {
             databaseStore.clearMultiEndpoint(username, clientID, platform);
@@ -393,8 +407,8 @@ public class MemorySessionStore implements ISessionsStore {
 
                         if (remove) {
                             sessions.remove(c);
-                            mServer.getProcessor().kickoffSession(s);
                             it.remove();
+                            mServer.getProcessor().kickoffSession(s);
                         }
                     }
                 }
@@ -405,6 +419,34 @@ public class MemorySessionStore implements ISessionsStore {
         return session;
     }
 
+    @Override
+    public void kickoffUserClient(String username, String cid) {
+        List<String> clientIds = new ArrayList<>();
+        if(StringUtil.isNullOrEmpty(cid)) {
+            ConcurrentSkipListSet<String> sessionSet = getUserSessionSet(username);
+            clientIds.addAll(sessionSet);
+        } else {
+            clientIds.add(cid);
+        }
+
+        for (String clientID: clientIds) {
+            Session session = sessions.get(clientID);
+            if(session == null) {
+                ClientSession clientSession = new ClientSession(clientID, this);
+                session = databaseStore.getSession(username, clientID, clientSession);
+                if (session == null || session.getDeleted() > 0) {
+                    continue;
+                }
+                sessions.put(clientID, session);
+            }
+
+            if (session.getDeleted() == 0) {
+                session.setDeleted(1);
+                databaseStore.updateSessionDeleted(username, clientID, 1);
+                mServer.getProcessor().kickoffSession(session);
+            }
+        }
+    }
 
     @Override
     public ErrorCode loadActiveSession(String username, String clientID) {
@@ -452,7 +494,6 @@ public class MemorySessionStore implements ISessionsStore {
 
         session.setUsername(username);
         sessions.put(clientID, session);
-
         ConcurrentSkipListSet<String> sessionSet = getUserSessionSet(username);
         sessionSet.add(clientID);
 
@@ -491,11 +532,15 @@ public class MemorySessionStore implements ISessionsStore {
     @Override
     public void loadUserSession(String username, String clientID) {
         if (sessions.containsKey(clientID)) {
+            ConcurrentSkipListSet<String> sessionSet = getUserSessionSet(username);
+            sessionSet.add(clientID);
             return;
         }
         Session session = databaseStore.getSession(username, clientID, new ClientSession(clientID, this));
         if (session != null) {
             sessions.put(clientID, session);
+            ConcurrentSkipListSet<String> sessionSet = getUserSessionSet(username);
+            sessionSet.add(clientID);
         }
     }
 

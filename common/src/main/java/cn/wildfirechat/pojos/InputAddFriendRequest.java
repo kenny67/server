@@ -9,11 +9,11 @@
 package cn.wildfirechat.pojos;
 
 
-public class InputFriendRequest {
+public class InputAddFriendRequest {
     private String userId;
     private String friendUid;
-    private int status;
-    private String extra;
+    private String reason;
+    private boolean force;
 
 
     public String getUserId() {
@@ -32,19 +32,19 @@ public class InputFriendRequest {
         this.friendUid = friendUid;
     }
 
-    public int getStatus() {
-        return status;
+    public String getReason() {
+        return reason;
     }
 
-    public void setStatus(int status) {
-        this.status = status;
+    public void setReason(String reason) {
+        this.reason = reason;
     }
 
-    public String getExtra() {
-        return extra;
+    public boolean isForce() {
+        return force;
     }
 
-    public void setExtra(String extra) {
-        this.extra = extra;
+    public void setForce(boolean force) {
+        this.force = force;
     }
 }

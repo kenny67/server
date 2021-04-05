@@ -29,10 +29,6 @@ public enum ErrorCode {
     //Group error
     ERROR_CODE_GROUP_ALREADY_EXIST(11, "group aleady exist"),
 
-
-    //user error
-    ERROR_CODE_PASSWORD_INCORRECT(15, "password incorrect"),
-
     //user error
     ERROR_CODE_FRIEND_ALREADY_REQUEST(16, "already send request"),
     ERROR_CODE_FRIEND_REQUEST_BLOCKED(18, "friend request blocked"),
@@ -44,6 +40,9 @@ public enum ErrorCode {
 
     ERROR_CODE_ALREADY_FRIENDS(23, "already friends"),
 
+    ERROR_CODE_RECALL_TIME_EXPIRED(24, "time expired"),
+
+    ERROR_CODE_API_NOT_SIGNED(239, "api not signed or sign parameter not completion"),
     ERROR_CODE_GROUP_EXCEED_MAX_MEMBER_COUNT(240, "group exceed max member count"),
     ERROR_CODE_GROUP_MUTED(241, "group is muted"),
     ERROR_CODE_SENSITIVE_MATCHED(242, "sensitive matched"),
@@ -56,6 +55,7 @@ public enum ErrorCode {
     ERROR_CODE_TIMEOUT(249, "timeout"),
     ERROR_CODE_OVER_FREQUENCY(250, "over frequency"),
     INVALID_PARAMETER(251, "Invalid parameter"),
+    INVALID_ASYNC_HANDLING(252, "Async handling"),
     ERROR_CODE_NOT_EXIST(253, "not exist"),
     ERROR_CODE_NOT_IMPLEMENT(254, "not implement"),
 

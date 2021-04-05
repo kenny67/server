@@ -25,11 +25,11 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.util.StringUtil;
 import cn.wildfirechat.pojos.OutputNotifyChannelSubscribeStatus;
 import cn.wildfirechat.pojos.SendMessageData;
-import com.xiaoleilu.hutool.system.UserInfo;
 import com.xiaoleilu.loServer.model.FriendData;
 import io.moquette.persistence.*;
 import io.moquette.persistence.MemorySessionStore.Session;
 import io.moquette.server.ConnectionDescriptorStore;
+import io.moquette.server.Server;
 import io.moquette.spi.IMessagesStore;
 import io.moquette.spi.ISessionsStore;
 import io.netty.buffer.ByteBuf;
@@ -49,6 +49,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 
+import static cn.wildfirechat.common.IMExceptionEvent.EventType.EVENT_CALLBACK_Exception;
 import static cn.wildfirechat.proto.ProtoConstants.PersistFlag.Transparent;
 
 public class MessagesPublisher {
@@ -159,9 +160,9 @@ public class MessagesPublisher {
         }
     }
 
-    private void publish2Receivers(String sender, int conversationType, String target, int line, long messageHead, Collection<String> receivers, String pushContent, String exceptClientId, int pullType, int messageContentType, long serverTime, int mentionType, List<String> mentionTargets, int persistFlag) {
+    private void publish2Receivers(String sender, int conversationType, String target, int line, long messageHead, Collection<String> receivers, String pushContent, String pushData, String exceptClientId, int pullType, int messageContentType, long serverTime, int mentionType, List<String> mentionTargets, int persistFlag) {
         if (persistFlag == Transparent) {
-            publishTransparentMessage2Receivers(messageHead, receivers, pullType);
+            publishTransparentMessage2Receivers(messageHead, receivers, pullType, exceptClientId);
             return;
         }
 
@@ -176,7 +177,14 @@ public class MessagesPublisher {
                             message = m_messagesStore.getMessage(messageHead);
                         }
                         final WFCMessage.Message finalMsg = message;
-                        executorCallback.execute(() -> HttpUtils.httpJsonPost(robot.getCallback(), new Gson().toJson(SendMessageData.fromProtoMessage(finalMsg), SendMessageData.class)));
+                        Server.getServer().getCallbackScheduler().execute(() -> {
+                            try {
+                                HttpUtils.httpJsonPost(robot.getCallback(), new Gson().toJson(SendMessageData.fromProtoMessage(finalMsg), SendMessageData.class));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                Utility.printExecption(LOG, e, EVENT_CALLBACK_Exception);
+                            }
+                        });
                         continue;
                     }
                 }
@@ -198,6 +206,23 @@ public class MessagesPublisher {
             if (pullType == ProtoConstants.PullType.Pull_ChatRoom) {
                 targetClients = m_messagesStore.getChatroomMemberClient(user);
             }
+            boolean isPcOnline = false;
+
+            if (!user.equals(sender)) {
+                for (Session targetSession : sessions) {
+                    if (targetSession.getPlatform() == ProtoConstants.Platform.Platform_WEB
+                        || targetSession.getPlatform() == ProtoConstants.Platform.Platform_Windows
+                        || targetSession.getPlatform() == ProtoConstants.Platform.Platform_LINUX
+                        || targetSession.getPlatform() == ProtoConstants.Platform.Platform_OSX) {
+                        boolean targetIsActive = this.connectionDescriptors.isConnected(targetSession.getClientSession().clientID);
+                        if (targetIsActive) {
+                            isPcOnline = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
             for (Session targetSession : sessions) {
                 //超过7天不活跃的用户忽略
                 if(System.currentTimeMillis() - targetSession.getLastActiveTime() > 7 * 24 * 60 * 60 * 1000) {
@@ -227,11 +252,13 @@ public class MessagesPublisher {
                     }
                 }
 
-                boolean isSlient;
+                boolean isSilent;
+                boolean isConvSilent = false;
                 if (pullType == ProtoConstants.PullType.Pull_ChatRoom) {
-                    isSlient = true;
+                    isSilent = true;
+                    isConvSilent = true;
                 } else {
-                    isSlient = false;
+                    isSilent = false;
 
                     if (!user.equals(sender)) {
                         WFCMessage.Conversation conversation;
@@ -241,27 +268,30 @@ public class MessagesPublisher {
                             conversation = WFCMessage.Conversation.newBuilder().setType(conversationType).setLine(line).setTarget(target).build();
                         }
 
-
-                        if (m_messagesStore.getUserConversationSlient(user, conversation)) {
+                        if (m_messagesStore.getUserConversationSilent(user, conversation)) {
                             LOG.info("The conversation {}-{}-{} is slient", conversation.getType(), conversation.getTarget(), conversation.getLine());
-                            isSlient = true;
+                            isConvSilent = true;
                         }
 
-                        if (m_messagesStore.getUserGlobalSlient(user)) {
+                        if (m_messagesStore.getUserGlobalSilent(user)) {
                             LOG.info("The user {} is global sliented", user);
-                            isSlient = true;
+                            isSilent = true;
+                        }
+
+                        if (!isSilent && isPcOnline && m_messagesStore.getSilentWhenPcOnline(user)) {
+                            LOG.info("The user {} pc online and silent when pc online", user);
+                            isSilent = true;
+                        }
+
+                        if (!isSilent && m_messagesStore.isUserNoDisturbing(user)) {
+                            LOG.info("The user {} is no disturbing", user);
+                            isSilent = true;
                         }
                     }
 
                     if (!StringUtil.isNullOrEmpty(pushContent) || messageContentType == 400) {
-                        if (!isSlient) {
+                        if (!isConvSilent && (persistFlag & 0x02) > 0) {
                             targetSession.setUnReceivedMsgs(targetSession.getUnReceivedMsgs() + 1);
-                        }
-                    }
-
-                    if (isSlient) {
-                        if (mentionType == 2 || (mentionType == 1 && mentionTargets.contains(user))) {
-                            isSlient = false;
                         }
                     }
                 }
@@ -294,15 +324,15 @@ public class MessagesPublisher {
                     int curMentionType = 0;
                     if (mentionType == 2) {
                         curMentionType = 2;
-                        isSlient = false;
+                        isConvSilent = false;
                     } else if (mentionType == 1){
                         if (mentionTargets != null && mentionTargets.contains(user)) {
                             curMentionType = 1;
-                            isSlient = false;
+                            isConvSilent = false;
                         }
                     }
 
-                    if ((StringUtil.isNullOrEmpty(pushContent) && messageContentType != 402 && messageContentType != 400)) {
+                    if ((StringUtil.isNullOrEmpty(pushContent) && messageContentType != 402 && messageContentType != 400 && messageContentType != 401 && messageContentType != 406)) {
                         LOG.info("push content is empty and contenttype is {}", messageContentType);
                         continue;
                     }
@@ -312,8 +342,13 @@ public class MessagesPublisher {
                         continue;
                     }
 
-                    if (isSlient) {
-                        LOG.info("Slient of user or conversation");
+                    if (isConvSilent) {
+                        LOG.info("Silent of user or conversation");
+                        continue;
+                    }
+
+                    if (isSilent) {
+                        LOG.info("Silent of user");
                         continue;
                     }
 
@@ -332,14 +367,33 @@ public class MessagesPublisher {
                             name = fd.getAlias();
                         }
                     }
-                    this.messageSender.sendPush(sender, conversationType, target, line, messageHead, targetSession.getClientID(), pushContent, messageContentType, serverTime, name, targetName, targetSession.getUnReceivedMsgs(), curMentionType, isHiddenDetail, targetSession.getLanguage());
+                    this.messageSender.sendPush(sender, conversationType, target, line, messageHead, targetSession.getClientID(), pushContent, pushData, messageContentType, serverTime, name, targetName, targetSession.getUnReceivedMsgs(), curMentionType, isHiddenDetail, targetSession.getLanguage());
                 }
 
             }
         }
     }
+    
+    public boolean sendOfflineNotify(String clientId) {
+        boolean targetIsActive = this.connectionDescriptors.isConnected(clientId);
+        if (targetIsActive) {
+            ByteBuf payload = Unpooled.buffer();
+            payload.ensureWritable(1).writeBytes("1".getBytes());
+            MqttPublishMessage publishMsg;
+            publishMsg = notRetainedPublish(IMTopic.NotifyOffline, MqttQoS.AT_MOST_ONCE, payload);
 
-    private void publishTransparentMessage2Receivers(long messageHead, Collection<String> receivers, int pullType) {
+            boolean sent = this.messageSender.sendPublish(clientId, publishMsg);
+            if (sent) {
+                return true;
+            }
+        } else {
+            LOG.info("the target {} is not active", clientId);
+        }
+
+        return false;
+    }
+
+    private void publishTransparentMessage2Receivers(long messageHead, Collection<String> receivers, int pullType, String exceptClientId) {
         WFCMessage.Message message = m_messagesStore.getMessage(messageHead);
 
         if (message != null) {
@@ -352,6 +406,9 @@ public class MessagesPublisher {
                     }
 
                     if (targetSession.getClientID() == null) {
+                        continue;
+                    }
+                    if (targetSession.getClientID().equals(exceptClientId)) {
                         continue;
                     }
 
@@ -510,7 +567,14 @@ public class MessagesPublisher {
         if (message.getConversation().getType() == ProtoConstants.ConversationType.ConversationType_Channel) {
             WFCMessage.ChannelInfo channelInfo = m_messagesStore.getChannelInfo(message.getConversation().getTarget());
             if (channelInfo != null && !StringUtil.isNullOrEmpty(channelInfo.getCallback())) {
-                executorCallback.execute(() -> HttpUtils.httpJsonPost(channelInfo.getCallback() + "/message", new Gson().toJson(SendMessageData.fromProtoMessage(message), SendMessageData.class)));
+                Server.getServer().getCallbackScheduler().execute(() -> {
+                    try {
+                        HttpUtils.httpJsonPost(channelInfo.getCallback() + "/message", new Gson().toJson(SendMessageData.fromProtoMessage(message), SendMessageData.class));
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        Utility.printExecption(LOG, e, EVENT_CALLBACK_Exception);
+                    }
+                });
             }
         }
         long messageId = message.getMessageId();
@@ -545,18 +609,56 @@ public class MessagesPublisher {
                     message.getConversation().getType(), message.getConversation().getTarget(), message.getConversation().getLine(),
                     messageId,
                     receivers,
-                    pushContent, exceptClientId, pullType, message.getContent().getType(), message.getServerTimestamp(), message.getContent().getMentionedType(), message.getContent().getMentionedTargetList(), message.getContent().getPersistFlag());
+                    pushContent, message.getContent().getPushData(), exceptClientId, pullType, message.getContent().getType(), message.getServerTimestamp(), message.getContent().getMentionedType(), message.getContent().getMentionedTargetList(), message.getContent().getPersistFlag());
 
     }
 
     public void forwardMessage(final WFCMessage.Message message, String forwardUrl) {
-        executorCallback.execute(() -> HttpUtils.httpJsonPost(forwardUrl, new Gson().toJson(OutputMessageData.fromProtoMessage(message), OutputMessageData.class)));
+        Server.getServer().getCallbackScheduler().execute(() -> {
+            try {
+                HttpUtils.httpJsonPost(forwardUrl, new Gson().toJson(OutputMessageData.fromProtoMessage(message), OutputMessageData.class));
+            } catch (Exception e) {
+                e.printStackTrace();
+                Utility.printExecption(LOG, e, EVENT_CALLBACK_Exception);
+            }
+        });
+    }
+
+    public void forwardMessageWithCallback(final WFCMessage.Message message, String forwardUrl, HttpUtils.HttpCallback callback) {
+        try {
+            HttpUtils.httpJsonPost(forwardUrl, new Gson().toJson(OutputMessageData.fromProtoMessage(message), OutputMessageData.class), new HttpUtils.HttpCallback() {
+                @Override
+                public void onSuccess(String content) {
+                    Server.getServer().getImBusinessScheduler().execute(()->{
+                        callback.onSuccess(content);
+                    });
+                }
+
+                @Override
+                public void onFailure(int statusCode, String errorMessage) {
+                    Server.getServer().getImBusinessScheduler().execute(()->{
+                        callback.onFailure(statusCode, errorMessage);
+                    });
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+            Utility.printExecption(LOG, e, EVENT_CALLBACK_Exception);
+        }
     }
 
     public void notifyChannelListenStatusChanged(WFCMessage.ChannelInfo channelInfo, String user, boolean listen) {
         if (channelInfo == null || StringUtil.isNullOrEmpty(channelInfo.getCallback())) {
             return;
         }
-        executorCallback.execute(() -> HttpUtils.httpJsonPost(channelInfo.getCallback() + "/subscribe", new Gson().toJson(new OutputNotifyChannelSubscribeStatus(user, channelInfo.getTargetId(), listen), OutputNotifyChannelSubscribeStatus.class)));
+
+        Server.getServer().getCallbackScheduler().execute(() -> {
+            try {
+                HttpUtils.httpJsonPost(channelInfo.getCallback() + "/subscribe", new Gson().toJson(new OutputNotifyChannelSubscribeStatus(user, channelInfo.getTargetId(), listen), OutputNotifyChannelSubscribeStatus.class));
+            } catch (Exception e) {
+                e.printStackTrace();
+                Utility.printExecption(LOG, e, EVENT_CALLBACK_Exception);
+            }
+        });
     }
 }

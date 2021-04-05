@@ -8,11 +8,11 @@
 
 package com.xiaoleilu.loServer.action.channel;
 
+import cn.wildfirechat.common.IMExceptionEvent;
 import cn.wildfirechat.proto.WFCMessage;
 import com.google.gson.Gson;
 import com.xiaoleilu.loServer.RestResult;
 import com.xiaoleilu.loServer.action.Action;
-import com.xiaoleilu.loServer.action.admin.AdminAction;
 import com.xiaoleilu.loServer.handler.Request;
 import com.xiaoleilu.loServer.handler.Response;
 import io.moquette.spi.impl.Utils;
@@ -34,12 +34,24 @@ abstract public class ChannelAction extends Action {
     @Override
     public ErrorCode preAction(Request request, Response response) {
         String nonce = request.getHeader("nonce");
+        if (StringUtil.isNullOrEmpty(nonce)) {
+            nonce = request.getHeader("Nonce");
+        }
         String timestamp = request.getHeader("timestamp");
+        if (StringUtil.isNullOrEmpty(timestamp)) {
+            timestamp = request.getHeader("Timestamp");
+        }
         String sign = request.getHeader("sign");
+        if (StringUtil.isNullOrEmpty(sign)) {
+            sign = request.getHeader("Sign");
+        }
         String cid = request.getHeader("cid");
+        if (StringUtil.isNullOrEmpty(cid)) {
+            cid = request.getHeader("Cid");
+        }
 
         if (StringUtil.isNullOrEmpty(nonce) || StringUtil.isNullOrEmpty(timestamp) || StringUtil.isNullOrEmpty(sign) || StringUtil.isNullOrEmpty(cid)) {
-            return ErrorCode.INVALID_PARAMETER;
+            return ErrorCode.ERROR_CODE_API_NOT_SIGNED;
         }
 
         if (!mLimitCounter.isGranted(cid)) {
@@ -51,8 +63,8 @@ abstract public class ChannelAction extends Action {
             ts = Long.parseLong(timestamp);
         } catch (Exception e) {
             e.printStackTrace();
-            Utility.printExecption(LOG, e);
-            return ErrorCode.INVALID_PARAMETER;
+            Utility.printExecption(LOG, e, IMExceptionEvent.EventType.CHANNEL_API_Exception);
+            return ErrorCode.ERROR_CODE_API_NOT_SIGNED;
         }
 
         if (System.currentTimeMillis() - ts > 2 * 60 * 60 * 1000) {
@@ -62,6 +74,10 @@ abstract public class ChannelAction extends Action {
         channelInfo = messagesStore.getChannelInfo(cid);
         if (channelInfo == null) {
             return ErrorCode.INVALID_PARAMETER;
+        }
+        
+        if (StringUtil.isNullOrEmpty(channelInfo.getSecret())) {
+            return ErrorCode.ERROR_CODE_NOT_RIGHT;
         }
 
         String str = nonce + "|" + channelInfo.getSecret() + "|" + timestamp;

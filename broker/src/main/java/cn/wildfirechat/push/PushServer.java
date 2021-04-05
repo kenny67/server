@@ -8,12 +8,11 @@
 
 package cn.wildfirechat.push;
 
+import cn.wildfirechat.common.IMExceptionEvent;
 import cn.wildfirechat.proto.ProtoConstants;
-import cn.wildfirechat.proto.WFCMessage;
 import com.google.gson.Gson;
 import io.moquette.persistence.MemorySessionStore;
 import io.moquette.server.config.IConfig;
-import io.moquette.spi.ClientSession;
 import io.moquette.spi.ISessionsStore;
 import io.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
@@ -35,6 +34,7 @@ public class PushServer {
         int PUSH_MESSAGE_TYPE_VOIP_INVITE = 1;
         int PUSH_MESSAGE_TYPE_VOIP_BYE = 2;
         int PUSH_MESSAGE_TYPE_FRIEND_REQUEST = 3;
+        int PUSH_MESSAGE_TYPE_VOIP_ANSWER = 4;
     }
 
     private static PushServer INSTANCE = new PushServer();
@@ -64,7 +64,7 @@ public class PushServer {
                     pushMessageInternel(pushMessage, deviceId, pushContent);
                 } catch (Exception e) {
                     e.printStackTrace();
-                    Utility.printExecption(LOG, e);
+                    Utility.printExecption(LOG, e, IMExceptionEvent.EventType.PUSH_SERVER_Exception);
                 }
             });
     }
@@ -90,6 +90,7 @@ public class PushServer {
         pushMessage.pushContent = pushContent;
         pushMessage.deviceToken = session.getDeviceToken();
         pushMessage.unReceivedMsg = badge;
+        pushMessage.userId = session.getUsername();
         if (session.getPlatform() == ProtoConstants.Platform.Platform_iOS || session.getPlatform() == ProtoConstants.Platform.Platform_Android) {
             String url = androidPushServerUrl;
             if (session.getPlatform() == ProtoConstants.Platform.Platform_iOS) {

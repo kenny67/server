@@ -17,6 +17,7 @@ public interface APIPath {
     String Sensitive_Query = "/admin/sensitive/query";
 
     String Create_User = "/admin/user/create";
+    String Update_User = "/admin/user/update";
     String Destroy_User = "/admin/user/destroy";
     String Create_Robot = "/admin/robot/create";
     String CreateOrUpdate_Device = "/admin/device/create";
@@ -28,7 +29,9 @@ public interface APIPath {
     String User_Get_Blocked_List = "/admin/user/get_blocked_list";
     String User_Check_Block_Status = "/admin/user/check_block_status";
     String User_Get_Online_Status = "/admin/user/onlinestatus";
-
+    String User_Put_Setting = "/admin/user/put_setting";
+    String User_Get_Setting = "/admin/user/get_setting";
+    String User_Kickoff_Client = "/admin/user/kickoff_client";
 
     String Friend_Update_Status = "/admin/friend/status";
     String Friend_Get_List = "/admin/friend/list";
@@ -36,12 +39,17 @@ public interface APIPath {
     String Blacklist_Get_List = "/admin/blacklist/list";
     String Friend_Get_Alias = "/admin/friend/get_alias";
     String Friend_Set_Alias = "/admin/friend/set_alias";
+    String Friend_Send_Request = "/admin/friend/send_request";
+    String Friend_Get_Requests = "/admin/friend/get_requests";
+    String Relation_Get = "/admin/relation/get";
 
     String Msg_Send = "/admin/message/send";
     String Msg_Recall = "/admin/message/recall";
     String Msg_Delete = "/admin/message/delete";
     String Msg_Broadcast = "/admin/message/broadcast";
     String Msg_Multicast = "/admin/message/multicast";
+    String Msg_RecallBroadCast = "/admin/message/recall_broadcast";
+    String Msg_RecallMultiCast = "/admin/message/recall_multicast";
 
     String Create_Group = "/admin/group/create";
     String Group_Dismiss = "/admin/group/del";
@@ -54,8 +62,9 @@ public interface APIPath {
     String Group_Member_Quit = "/admin/group/member/quit";
     String Group_Set_Manager = "/admin/group/manager/set";
     String Group_Mute_Member = "/admin/group/manager/mute";
+    String Group_Allow_Member = "/admin/group/manager/allow";
     String Get_User_Groups = "/admin/group/of_user";
-
+    String Group_Set_Member_Alias = "/admin/group/member/set_alias";
 
     String Create_Channel = "/admin/channel/create";
     String Get_System_Setting = "/admin/system/get_setting";
@@ -70,4 +79,25 @@ public interface APIPath {
 
     String Robot_User_Info = "/robot/user_info";
     String Robot_Message_Send = "/robot/message/send";
+
+    String Robot_Set_Callback = "/robot/set_callback";
+    String Robot_Get_Callback = "/robot/get_callback";
+    String Robot_Delete_Callback = "/robot/delete_callback";
+    String Robot_Update_Profile = "/robot/update_profile";
+
+    String Robot_Verify_Application_User = "/robot/user/verify";
+
+    String Robot_Group_Member_Add = "/robot/group/member/add";
+    String Robot_Group_Allow_Member = "/robot/group/manager/allow";
+    String Robot_Create_Group = "/robot/group/create";
+    String Robot_Group_Dismiss = "/robot/group/del";
+    String Robot_Group_Get_Info = "/robot/group/get_info";
+    String Robot_Group_Member_List = "/robot/group/member/list";
+    String Robot_Group_Member_Kickoff = "/robot/group/member/del";
+    String Robot_Group_Modify_Info = "/robot/group/modify";
+    String Robot_Group_Set_Member_Alias = "/robot/group/member/set_alias";
+    String Robot_Group_Mute_Member = "/robot/group/manager/mute";
+    String Robot_Group_Member_Quit = "/robot/group/member/quit";
+    String Robot_Group_Transfer = "/robot/group/transfer";
+    String Robot_Group_Set_Manager = "/robot/group/manager/set";
 }

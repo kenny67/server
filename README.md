@@ -7,7 +7,7 @@
 | [android-chat](https://github.com/wildfirechat/android-chat) | 野火IM Android SDK源码和App源码                       |可以很方便地进行二次开发，或集成到现有应用当中      |
 | [ios-chat](https://github.com/wildfirechat/ios-chat)         | 野火IM iOS SDK源码和App源码                            |可以很方便地进行二次开发，或集成到现有应用当中      |
 | [pc-chat](https://github.com/wildfirechat/pc-chat)           | 基于[Electron](https://electronjs.org/)开发的PC平台应用 |      |
-| [web-chat](https://github.com/wildfirechat/web-chat)          | Web平台的Demo, [体验地址](http://web.wildfirechat.cn)   |      |
+| [web-chat](https://github.com/wildfirechat/web-chat)          | Web平台的Demo, [体验地址](http://web.wildfirechat.net)   |      |
 | [wx-chat](https://github.com/wildfirechat/wx-chat)           | 微信小程序平台的Demo   |      |
 | [server](https://github.com/wildfirechat/server)             | IM server                                               |      |
 | [app server](https://github.com/wildfirechat/app_server)     | 应用服务端                                          |      |
@@ -16,7 +16,7 @@
 | [docs](https://github.com/wildfirechat/docs)                 | 野火IM相关文档，包含设计、概念、开发、使用说明          |      | |                                            |
 
 # server
-本工程为野火IM 社区版IM服务软件。野火IM作为一个通用的即时通讯解决方案，可以集成到各种应用中。请阅读[docs](http://docs.wildfirechat.cn)或下载服务器[发布版本](https://github.com/wildfirechat/server/releases)
+本工程为野火IM 社区版IM服务软件。野火IM作为一个通用的即时通讯解决方案，可以集成到各种应用中。请阅读[docs](http://docs.wildfirechat.net)或下载服务器[发布版本](https://github.com/wildfirechat/server/releases)
 
 
 开发一套IM系统真的很艰辛，请路过的朋友们给点个star，支持我们坚持下去🙏🙏🙏🙏🙏
@@ -72,7 +72,8 @@
 
 ## 升级说明
 1. 从0.42 版本增加了群成员数限制，默认为2000。如果您从之前的版本升级到这个版本或以后，需要注意到群成员数的限制。升级之后超出限制的群不受影响，但不能继续加人，如果您想修改默认值，可以在升级版本之后，修改t_setting表，把默认的大小改为您期望的人数。另外修改t_group表，把已经存在的群组max_member_count改成您期望的，然后重启。
-
+2. 0.46和0.47版本升级到0.48及以后版本时，可能会提示flyway migrate 38错误，请执行 [修复脚本](https://github.com/wildfirechat/server/blob/wildfirechat/flyway_repaire_migrate_38.sql) 进行修复。0.46和0.47版本之外的版本不会出现此问题。
+3. 从0.54之前版本升级到0.54及以后版本时，会提示flyway migrate错误。因为0.54版本删除了sql脚本中默认敏感词的内容，flyway checksum失败。请执行```update flyway_schema_history set checksum = 0 where script = 'V17__add_default_sensitive_word.sql';```来修复。
 
 ## 特别感谢
 1. [moquette](https://github.com/moquette-io/moquette) 本项目是基于此项目二次开发而来，处理MQTT相关业务。

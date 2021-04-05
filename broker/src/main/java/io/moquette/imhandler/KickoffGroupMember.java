@@ -14,6 +14,9 @@ import cn.wildfirechat.pojos.GroupNotificationBinaryContent;
 import io.moquette.spi.impl.Qos1PublishHandler;
 import io.netty.buffer.ByteBuf;
 import cn.wildfirechat.common.ErrorCode;
+
+import java.util.Set;
+
 import static win.liyufan.im.IMTopic.KickoffGroupMemberTopic;
 
 @Handler(value = KickoffGroupMemberTopic)
@@ -47,12 +50,23 @@ public class KickoffGroupMember extends GroupHandler<WFCMessage.RemoveGroupMembe
             if (!isAllow && (groupInfo.getType() == ProtoConstants.GroupType.GroupType_Normal || groupInfo.getType() == ProtoConstants.GroupType.GroupType_Restricted)) {
                 errorCode = ErrorCode.ERROR_CODE_NOT_RIGHT;
             } else {
+                if(request.hasNotifyContent() && request.getNotifyContent().getType() > 0 && !isAdmin && !m_messagesStore.isAllowClientCustomGroupNotification()) {
+                    return ErrorCode.ERROR_CODE_NOT_RIGHT;
+                }
+
                 //send notify message first, then kickoff the member
-                if (request.hasNotifyContent() && request.getNotifyContent().getType() > 0) {
+                if (request.hasNotifyContent() && request.getNotifyContent().getType() > 0 && (isAdmin || m_messagesStore.isAllowClientCustomGroupNotification())) {
                     sendGroupNotification(fromUser, groupInfo.getTargetId(), request.getToLineList(), request.getNotifyContent());
                 } else {
                     WFCMessage.MessageContent content = new GroupNotificationBinaryContent(request.getGroupId(), fromUser, null, request.getRemovedMemberList()).getKickokfMemberGroupNotifyContent();
                     sendGroupNotification(fromUser, request.getGroupId(), request.getToLineList(), content);
+                }
+
+                if((m_messagesStore.getVisibleQuitKickoffNotification() & 0x02) > 0) {
+                    Set<String> toUsers = m_messagesStore.getGroupManagers(request.getGroupId(), true);
+                    toUsers.addAll(request.getRemovedMemberList());
+                    WFCMessage.MessageContent content = new GroupNotificationBinaryContent(request.getGroupId(), fromUser, null, request.getRemovedMemberList()).getKickokfMemberVisibleGroupNotifyContent();
+                    sendGroupNotification(fromUser, request.getGroupId(), request.getToLineList(), content, toUsers);
                 }
                 errorCode = m_messagesStore.kickoffGroupMembers(fromUser, isAdmin, request.getGroupId(), request.getRemovedMemberList());
             }

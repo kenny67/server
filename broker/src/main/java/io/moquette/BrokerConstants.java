@@ -35,7 +35,6 @@ public final class BrokerConstants {
     public static final String DEFAULT_MOQUETTE_STORE_MAP_DB_FILENAME = "moquette_store.mapdb";
     public static final String DEFAULT_PERSISTENT_PATH = System.getProperty("user.dir") + File.separator
             + DEFAULT_MOQUETTE_STORE_MAP_DB_FILENAME;
-    public static final String WEB_SOCKET_PORT_PROPERTY_NAME = "websocket_port";
     public static final String WSS_PORT_PROPERTY_NAME = "secure_websocket_port";
     public static final String SSL_PORT_PROPERTY_NAME = "ssl_port";
     public static final String JKS_PATH_PROPERTY_NAME = "jks_path";
@@ -47,7 +46,6 @@ public final class BrokerConstants {
     public static final String DB_AUTHENTICATOR_QUERY = "authenticator.db.query";
     public static final String DB_AUTHENTICATOR_DIGEST = "authenticator.db.digest";
     public static final int PORT = 1883;
-    public static final int WEBSOCKET_PORT = 8080;
     public static final String DISABLED_PORT_BIND = "disabled";
     public static final String HOST = "0.0.0.0";
     public static final String NEED_CLIENT_AUTH = "need_client_auth";
@@ -92,7 +90,21 @@ public final class BrokerConstants {
     public static final String PUSH_ANDROID_SERVER_ADDRESS = "push.android.server.address";
     public static final String PUSH_IOS_SERVER_ADDRESS = "push.ios.server.address";
 
+    public static final String MONITOR_Exception_Event_Address = "monitor.exception_event_address";
+
+
     public static final String USER_ONLINE_STATUS_CALLBACK = "user.online_status_callback";
+
+    public static final String GROUP_INFO_UPDATE_CALLBACK = "group.group_info_update_callback";
+    public static final String GROUP_MEMBER_UPDATE_CALLBACK = "group.group_member_update_callback";
+    public static final String RELATION_UPDATE_CALLBACK = "relation.relation_update_callback";
+    public static final String USER_INFO_UPDATE_CALLBACK = "user.user_info_update_callback";
+
+
+    public static final String CHANNEL_INFO_UPDATE_CALLBACK = "channel.channel_info_update_callback";
+    public static final String CHATROOM_INFO_UPDATE_CALLBACK = "chatroom.chatroom_info_update_callback";
+    public static final String CHATROOM_MEMBER_UPDATE_CALLBACK = "chatroom.chatroom_member_update_callback";
+
 
     public static final String HZ_Cluster_Node_External_IP = "node_external_ip";
     public static final String HZ_Cluster_Node_External_Long_Port = "node_external_long_port";
@@ -101,24 +113,23 @@ public final class BrokerConstants {
     public static final String HTTP_SERVER_SECRET_KEY = "http.admin.secret_key";
     public static final String HTTP_SERVER_API_NO_CHECK_TIME = "http.admin.no_check_time";
 
-    public static final String CLIENT_PROTO_SECRET_KEY = "client.proto.secret_key";
     public static final String TOKEN_SECRET_KEY = "token.key";
     public static final String TOKEN_EXPIRE_TIME = "token.expire_time";
 
     public static final String EMBED_DB_PROPERTY_NAME = "embed.db";
-
-    public static final String HZ_Cluster_Master_Node = "master_node";
+    public static final String DB_AUTO_CLEAN_HISTORY_MESSAGES = "db.auto_clean_history_messages";
 
     public static final String SENSITIVE_Filter_Type = "sensitive.filter.type";
 
+    public static final String SENSITIVE_Remote_Server_URL = "sensitive.remote_server_url";
+    public static final String SENSITIVE_Remote_Message_Type = "sensitive.remote_sensitive_message_type";
+    public static final String SENSITIVE_Remote_Fail_When_Matched = "sensitive.remote_fail_when_matched";
+
     public static final String MESSAGE_Forward_Url = "message.forward.url";
+    public static final String MESSAGE_Forward_Types = "message.forward.types";
 
     public static final String SERVER_MULTI_ENDPOINT = "server.multi_endpoint";
     public static final String SERVER_MULTI_PLATFROM_NOTIFICATION = "server.multi_platform_notification";
-
-    public static final String MONGODB_Client_URI = "mongodb.client_uri";
-    public static final String MONGODB_Database = "mongodb.database";
-    public static final String MONGODB_Data_Expire_Days = "mongodb.data_expire_days";
 
     public static final String MESSAGE_ROAMING = "message.roaming";
     public static final String MESSAGE_Remote_History_Message = "message.remote_history_message";
@@ -140,7 +151,19 @@ public final class BrokerConstants {
     public static final String CHATROOM_Participant_Idle_Time = "chatroom.participant_idle_time";
     public static final String CHATROOM_Rejoin_When_Active = "chatroom.rejoin_when_active";
 
+    public static final String GROUP_Allow_Client_Custom_Operation_Notification = "group.allow_client_custom_operation_notification";
+    public static final String GROUP_Visible_Quit_Kickoff_Notification = "group.visible_quit_or_kickoff_notification";
+
+    public static final String USER_HIDE_PROPERTIES = "user.hide_properties";
+
+    public static final String MESSAGES_FORBIDDEN_CLIENT_SEND_TYPES = "message.forbidden_client_send_types";
+    public static final String MESSAGES_BLACKLIST_EXCEPTION_TYPES = "message.blacklist_exception_types";
+    public static final String MESSAGES_GROUP_MUTE_EXCEPTION_TYPES = "message.group_mute_exception_types";
+    public static final String MESSAGES_GLOBAL_MUTE_EXCEPTION_TYPES = "message.global_mute_exception_types";
+
     public static final String MESSAGES_DISABLE_REMOTE_SEARCH = "message.disable_remote_search";
+
+    public static final String MESSAGES_RECALL_TIME_LIMIT = "message.recall_time_limit";
 
     private BrokerConstants() {
     }
